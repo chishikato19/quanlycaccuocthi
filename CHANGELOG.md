@@ -1,29 +1,79 @@
 # Changelog
 
-Tất cả các thay đổi đáng chú ý của dự án này sẽ được ghi nhận tại file này.
+Tất cả các thay đổi đáng chú ý của dự án **Hệ Thống Báo Cáo & Quản Lý Cuộc Thi Giáo Viên** được ghi nhận chi tiết tại file này.
 Định dạng dựa trên [Keep a Changelog](https://keepachangelog.com/vi/1.0.0/)
 và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [1.1.0] - 2026-11-01
+## [1.3.0] - 2026-11-01
 ### Thêm mới & Tối ưu (Added & Improved)
-- **Tách biệt tài khoản Tổng Quản Trị (Super Admin):**
-  - Super Admin là tài khoản quản trị hệ thống độc lập, không nằm trong danh sách giáo viên của trường và không bị gán vào các cuộc thi chuyên môn.
-  - Cổng đăng nhập riêng: Tên đăng nhập `admin` + Mật mã riêng.
-  - Phân quyền cấp cao: Chỉ Super Admin mới có quyền cấp hoặc hủy quyền `ADMIN` cho các giáo viên trong trường (thao tác 1 chạm tiện lợi).
-- **Tối ưu trải nghiệm Mobile 100%:**
-  - Cấu hình viewport chuẩn chống zoom ngoài ý muốn trên iOS và Android (`width=device-width, initialScale=1, maximumScale=1`).
-  - Nâng chiều cao nút bấm tối thiểu đạt chuẩn 42px - 44px (touch-friendly) thuận tiện cho ngón tay cái.
-  - Tối ưu Lightbox xem minh chứng trên màn hình nhỏ: Nút đóng lớn, thanh công cụ linh hoạt, ảnh tự co giãn theo tỷ lệ màn hình điện thoại.
-  - Thanh tiêu đề và các bộ lọc tự động xuống dòng và co giãn mượt mà từ màn hình 360px trở lên.
+- **Tự động phân cấp thư mục con trên Google Drive (Hierarchical Drive Storage):**
+  - Trong thư mục gốc chung của trường hoặc thư mục riêng của Admin, mỗi cuộc thi khi được tạo sẽ **tự động sinh ra một thư mục con riêng biệt** mang tên: `[Cuộc thi] + Tên cuộc thi`.
+  - Toàn bộ ảnh minh chứng của giáo viên nộp cho cuộc thi đó được lưu thẳng vào đúng thư mục con tương ứng, không bị lẫn lộn giữa các cuộc thi.
+  - Thêm nút bấm trực tiếp **`[📁 Mở Thư Mục Drive]`** trên Thẻ cuộc thi và Trang chi tiết báo cáo, giúp BGH và các đoàn kiểm tra mở xem/tải trọn bộ ảnh gốc của cuộc thi chỉ với 1 click.
+- **Hỗ trợ 2 nguồn tải ảnh minh chứng linh hoạt trên di động:**
+  - `📷 Chụp Ảnh Trực Tiếp`: Mở camera điện thoại chụp giấy khen/chứng chỉ/màn hình thi ngay tại chỗ.
+  - `🖼️ Lấy Từ Thư Viện Ảnh`: Mở album/bộ sưu tập ảnh của điện thoại hoặc máy tính để chọn ảnh chụp màn hình (screenshot) đã lưu từ trước.
+- **Cấu hình Google Drive lai (Hybrid Personal Admin Drive):**
+  - Cho phép tài khoản Admin cấu hình thư mục Google Drive cá nhân của mình để lưu minh chứng các cuộc thi do Admin đó phụ trách.
+  - Thêm hộp thoại `DriveConfigModal` để Admin lưu link Drive cá nhân một lần, hệ thống tự động điền sẵn khi tạo cuộc thi mới.
+  - Cơ chế tự động trích xuất Folder ID từ đường link chia sẻ Google Drive bất kỳ (`extractDriveFolderId`).
+  - Fallback an toàn: Nếu Admin không điền link riêng, hệ thống tự động lưu vào thư mục Drive chung của Super Admin (Nhà trường).
+
+---
+
+## [1.2.0] - 2026-11-01
+### Thêm mới (Added)
+- **Tách biệt hoàn toàn tài khoản Tổng Quản Trị (Super Admin):**
+  - Tài khoản Super Admin (`admin`) là tài khoản quản trị hệ thống độc lập, hoàn toàn không nằm trong danh sách giáo viên của trường và không bị gán tham gia các cuộc thi chuyên môn.
+  - Màn hình đăng nhập phân tách 2 cổng rõ ràng: Cổng dành cho Giáo viên trường (chọn tên + PIN) và Cổng dành cho Super Admin (tên đăng nhập + mật mã riêng).
+- **Phân cấp quyền hạn chuyên biệt (Role Delegation):**
+  - Chỉ duy nhất Super Admin có đặc quyền phân công hoặc thu hồi quyền `ADMIN` cho các giáo viên trong trường (thao tác 1 chạm trực tiếp trên bảng danh sách).
+  - Các tài khoản Admin thường không thể tự ý phân quyền cho người khác, đảm bảo tính bảo mật và kỷ luật quản lý.
+
+---
+
+## [1.1.0] - 2026-11-01
+### Tối ưu (Improved)
+- **Tối ưu trải nghiệm Mobile-First 100%:**
+  - Cấu hình thẻ Viewport chuẩn cho thiết bị di động (`width=device-width, initialScale=1, maximumScale=1, userScalable=false`), chống lỗi phóng to màn hình ngoài ý muốn trên iOS và Android.
+  - Chuẩn hóa toàn bộ nút bấm cốt lõi (*"Nộp minh chứng"*, *"Xem báo cáo"*, *"Xác nhận nộp"*, v.v.) đạt chiều cao chạm tối thiểu **42px – 44px**, thuận tiện cho thao tác một tay bằng ngón cái.
+  - Tối ưu giao diện xem ảnh phóng to (Evidence Lightbox) trên màn hình nhỏ: Nút đóng to rõ, ảnh tự động co giãn tỷ lệ màn hình, công cụ xoay ảnh 90° xử lý ảnh chụp điện thoại bị nghiêng/ngược.
+  - Thanh tiêu đề và các bộ lọc tự động xuống dòng và co giãn mượt mà từ màn hình di động 360px trở lên.
+
+---
 
 ## [1.0.0] - 2026-11-01
 ### Thêm mới (Added)
-- Hoàn thành bản dựng hệ thống Next.js 14 App Router, TypeScript, Tailwind CSS, Prisma ORM.
-- Chức năng chọn nhanh theo Tổ chuyên môn khi giao việc (1 chạm chọn cả tổ + chọn lẻ cá nhân).
-- Chức năng nộp minh chứng di động: mở camera chụp trực tiếp hoặc chọn ảnh, tự động nén ảnh client.
-- Chức năng xem nhanh minh chứng Lightbox: Zoom in/out, xoay ảnh 90°, nút mở Drive gốc, duyệt tuần tự Next/Prev.
-- Chức năng xuất báo cáo: Excel (.xlsx), ảnh PNG (.png), sao chép ảnh vào clipboard để dán Zalo, copy văn bản nhắc nhở Zalo.
-- Quản lý danh sách giáo viên: bôi đen copy/paste trực tiếp từ Excel, thêm/sửa/xóa, mã PIN cá nhân, reset PIN về mặc định (1234).
-- Vòng đời trạng thái công việc: Đang diễn ra, Quá hạn, Đã kết thúc sớm, Cho phép nộp muộn (gắn cờ LATE).
+- **Khởi tạo kiến trúc nền tảng:**
+  - Xây dựng hệ thống bằng **Next.js 14 (App Router)**, **TypeScript**, **Tailwind CSS**, và **Prisma ORM**.
+  - Áp dụng kiến trúc mô-đun hóa **Feature-Driven Architecture** (`src/features/`), cách ly hoàn toàn logic giữa các tính năng: auth, competitions, submissions, reports, teachers.
+  - Thiết lập bộ quy tắc chuẩn dành cho AI (`AI_RULES.md`) và tài liệu giới thiệu (`README.md`).
+- **Phân công công việc thông minh:**
+  - Tích hợp bộ chọn `DepartmentSelector`: 1 chạm chọn toàn bộ giáo viên trong một tổ chuyên môn (Toán - Tin, Ngữ Văn, Ngoại Ngữ, KHTN, KHXH, Văn Phòng...) kết hợp chọn lẻ từng cá nhân.
+  - Hiển thị thông số trực tiếp: `Đã chọn: X / Y giáo viên`.
+- **Vòng đời trạng thái công việc toàn diện:**
+  - Hỗ trợ các trạng thái: `Đang diễn ra`, `Sắp hết hạn`, `Quá hạn`, `Đã kết thúc sớm`.
+  - Quyền hạn người tạo việc: Chỉnh sửa thông tin, Gia hạn thời gian (Extend deadline), Kết thúc sớm (Close early).
+  - Tùy chọn **"Cho phép nộp khi quá hạn"**: Tiếp nhận bài nộp muộn và tự động gắn nhãn `NỘP MUỘN` phục vụ đánh giá thi đua.
+  - Tùy chọn **"Cho phép người dùng xem tiến độ"**: Hiển thị thanh tỷ lệ % hoàn thành cho giáo viên theo dõi.
+- **Xác thực mã PIN cá nhân:**
+  - Đăng nhập siêu tốc bằng cách chọn tên trong danh sách và nhập mã PIN 4 số (mặc định: `1234`).
+  - Chức năng tự đổi mã PIN cá nhân cho từng người dùng.
+  - Chức năng Admin/Super Admin reset mã PIN về mặc định khi giáo viên quên mật khẩu.
+- **Quản lý danh sách giáo viên & Nạp dữ liệu Excel:**
+  - Hỗ trợ bôi đen copy/paste dạng bảng trực tiếp từ Excel (`Ctrl + C` và `Ctrl + V`).
+  - Bộ phân tích TSV (`excel-parser.ts`) tự động nhận diện cột (Họ tên, Tổ bộ môn, SĐT, Vai trò), kiểm tra dữ liệu hợp lệ và hiển thị bảng xem trước (preview) trước khi lưu.
+  - Thêm mới lẻ, chỉnh sửa thông tin, xóa giáo viên.
+- **Nộp minh chứng & Nén ảnh tự động:**
+  - Tích hợp thư viện `browser-image-compression` nén ảnh tại client xuống dung lượng tối ưu ~150-200 KB, giúp nộp siêu nhanh qua mạng 3G/4G và tiết kiệm tối đa dung lượng máy chủ.
+  - Lưu trữ minh chứng trên Google Drive qua Service Account.
+- **Trình duyệt minh chứng Lightbox Viewer:**
+  - Xem ảnh phóng to sắc nét, thu nhỏ, phóng to, xoay ảnh 90°.
+  - Duyệt tuần tự liên tục giữa các giáo viên bằng nút mũi tên `← Trước` / `Sau →` hoặc phím mũi tên bàn phím mà không cần đóng mở popup.
+- **Xuất báo cáo đa định dạng:**
+  - Xuất bảng tính Excel (`.xlsx`) tự động căn độ rộng cột và định dạng trạng thái tham gia.
+  - Xuất thẻ báo cáo đồ họa độ nét cao dạng ảnh PNG (`.png`).
+  - Nút **"Sao chép ảnh vào Clipboard"** để dán trực tiếp (`Ctrl + V`) vào nhóm Zalo của trường.
+  - Nút **"Copy DS Chưa Nộp"** tự động trích xuất danh sách giáo viên chưa nộp kèm lời nhắc để gửi đôn đốc qua Zalo.
