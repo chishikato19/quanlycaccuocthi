@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     // ĐĂNG NHẬP DÀNH RIÊNG CHO TỔNG QUẢN TRỊ (SUPER ADMIN)
     if (isSuperAdminLogin || username) {
       const inputUsername = (username || "").trim().toLowerCase();
-      const superAdmin = await db.teacher.findFirst({
+      let superAdmin = await db.teacher.findFirst({
         where: {
           role: "SUPER_ADMIN",
           isActive: true,
@@ -22,6 +22,26 @@ export async function POST(req: Request) {
           ],
         },
       });
+
+      // TỰ ĐỘNG KHỞI TẠO: Nếu trong CSDL chưa có bất kỳ Super Admin nào, tự động tạo tài khoản mặc định
+      if (!superAdmin && (inputUsername === "admin" || !inputUsername)) {
+        const superAdminCount = await db.teacher.count({
+          where: { role: "SUPER_ADMIN" },
+        });
+
+        if (superAdminCount === 0) {
+          superAdmin = await db.teacher.create({
+            data: {
+              name: "Quản Trị Hệ Thống (Super Admin)",
+              department: "Hệ Thống",
+              phone: "admin",
+              role: "SUPER_ADMIN",
+              pinCode: "1234",
+              isActive: true,
+            },
+          });
+        }
+      }
 
       if (!superAdmin) {
         return NextResponse.json({ error: "Tài khoản Tổng Quản Trị không tồn tại" }, { status: 404 });
@@ -54,8 +74,21 @@ export async function POST(req: Request) {
 
     const { pinCode: _, ...safeUser } = teacher;
     return NextResponse.json({ success: true, user: safeUser });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Login error:", error);
+    const errMessage = error instanceof Error ? error.message : String(error);
+    if (
+      errMessage.includes("Can't reach database server") ||
+      errMessage.includes("database") ||
+      errMessage.includes("connect") ||
+      errMessage.includes("P1001") ||
+      errMessage.includes("P2021")
+    ) {
+      return NextResponse.json(
+        { error: "Chưa kết nối được Cơ sở dữ liệu (PostgreSQL). Vui lòng cấu hình DATABASE_URL trên Vercel." },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ error: "Đã xảy ra lỗi máy chủ" }, { status: 500 });
   }
 }

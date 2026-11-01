@@ -33,8 +33,21 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json({ success: true, data: teachers });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Fetch teachers error:", error);
+    const errMessage = error instanceof Error ? error.message : String(error);
+    if (
+      errMessage.includes("Can't reach database server") ||
+      errMessage.includes("database") ||
+      errMessage.includes("connect") ||
+      errMessage.includes("P1001") ||
+      errMessage.includes("P2021")
+    ) {
+      return NextResponse.json(
+        { error: "Chưa kết nối được Cơ sở dữ liệu (PostgreSQL). Vui lòng cấu hình DATABASE_URL trên Vercel." },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ error: "Lỗi khi tải danh sách giáo viên" }, { status: 500 });
   }
 }

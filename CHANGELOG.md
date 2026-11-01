@@ -6,6 +6,20 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.3.1] - 2026-11-01
+### Sửa lỗi & Tương thích Vercel Serverless (Fixed & Vercel Readiness)
+- **Khắc phục lỗi không đăng nhập được Super Admin trên Vercel (Lỗi CSDL Serverless):**
+  - Chuyển đổi cấu hình Prisma Datasource sang **PostgreSQL** (`provider = "postgresql"`), tương thích hoàn toàn với kiến trúc Serverless phi máy chủ trên Vercel (kết nối Neon Postgres / Supabase / Vercel Postgres).
+  - Khắc phục triệt để hạn chế của SQLite cục bộ (vốn bị lỗi quyền chỉ đọc `SQLITE_READONLY` và không lưu trữ vĩnh viễn trên Vercel Serverless Functions).
+- **Tự động đồng bộ bảng & Khởi tạo dữ liệu trên Vercel (`scripts/vercel-build.js`):**
+  - Tích hợp quy trình build thông minh: tự động chạy `prisma generate`, đồng bộ cấu trúc bảng qua `prisma db push` ngay trong quá trình build của Vercel mà không cần chạy migration thủ công.
+  - Script tự động nạp dữ liệu `seed-if-empty.js`: Tự động khởi tạo tài khoản Tổng Quản Trị Super Admin (`admin` / `1234`), danh sách giáo viên trường và cuộc thi mẫu khi cơ sở dữ liệu mới được kết nối; không làm ảnh hưởng đến dữ liệu sẵn có.
+- **Cơ chế tự phục hồi tài khoản Super Admin (Self-healing Auth):**
+  - API `/api/auth/login` được bổ sung cơ chế kiểm tra tự động: Nếu CSDL chưa có Super Admin, hệ thống tự động khởi tạo ngay lập tức khi đăng nhập `admin` / `1234`.
+  - Hiển thị thông báo hướng dẫn rõ ràng trên giao diện nếu CSDL chưa được cấu hình `DATABASE_URL`.
+
+---
+
 ## [1.3.0] - 2026-11-01
 ### Thêm mới & Tối ưu (Added & Improved)
 - **Tự động phân cấp thư mục con trên Google Drive (Hierarchical Drive Storage):**
