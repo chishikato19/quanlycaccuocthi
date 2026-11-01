@@ -6,16 +6,24 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
-## [Unreleased]
-- Chuẩn bị khởi tạo dự án Next.js 14+ với Prisma và Tailwind CSS.
+## [1.1.0] - 2026-11-01
+### Thêm mới & Tối ưu (Added & Improved)
+- **Tách biệt tài khoản Tổng Quản Trị (Super Admin):**
+  - Super Admin là tài khoản quản trị hệ thống độc lập, không nằm trong danh sách giáo viên của trường và không bị gán vào các cuộc thi chuyên môn.
+  - Cổng đăng nhập riêng: Tên đăng nhập `admin` + Mật mã riêng.
+  - Phân quyền cấp cao: Chỉ Super Admin mới có quyền cấp hoặc hủy quyền `ADMIN` cho các giáo viên trong trường (thao tác 1 chạm tiện lợi).
+- **Tối ưu trải nghiệm Mobile 100%:**
+  - Cấu hình viewport chuẩn chống zoom ngoài ý muốn trên iOS và Android (`width=device-width, initialScale=1, maximumScale=1`).
+  - Nâng chiều cao nút bấm tối thiểu đạt chuẩn 42px - 44px (touch-friendly) thuận tiện cho ngón tay cái.
+  - Tối ưu Lightbox xem minh chứng trên màn hình nhỏ: Nút đóng lớn, thanh công cụ linh hoạt, ảnh tự co giãn theo tỷ lệ màn hình điện thoại.
+  - Thanh tiêu đề và các bộ lọc tự động xuống dòng và co giãn mượt mà từ màn hình 360px trở lên.
 
-## [1.0.0-planning] - 2026-11-01
+## [1.0.0] - 2026-11-01
 ### Thêm mới (Added)
-- Hoàn thành bản đặc tả hệ thống toàn diện (`PROJECT_BLUEPRINT`).
-- Thiết lập bộ quy tắc chuẩn dành cho AI (`AI_RULES.md`) đảm bảo tính mô-đun hóa, dễ nâng cấp và không gây lỗi chéo.
-- Thiết kế ma trận phân quyền 3 cấp (Tổng Admin, Admin, Giáo viên thường).
-- Định nghĩa các trạng thái công việc: Đang diễn ra, Quá hạn, Đã kết thúc sớm, Cho phép nộp muộn (có gắn cờ thống kê).
-- Thiết kế cơ chế đăng nhập chọn tên kèm mã PIN cá nhân (hỗ trợ tự đổi PIN và Admin reset PIN).
-- Thiết kế tính năng nhập danh sách giáo viên nhanh bằng cách Copy/Paste từ Excel (TSV parser).
-- Thiết kế kiến trúc tích hợp Google Drive qua Service Account để lưu trữ ảnh minh chứng tự động.
-- Lộ trình triển khai qua Git và Vercel.
+- Hoàn thành bản dựng hệ thống Next.js 14 App Router, TypeScript, Tailwind CSS, Prisma ORM.
+- Chức năng chọn nhanh theo Tổ chuyên môn khi giao việc (1 chạm chọn cả tổ + chọn lẻ cá nhân).
+- Chức năng nộp minh chứng di động: mở camera chụp trực tiếp hoặc chọn ảnh, tự động nén ảnh client.
+- Chức năng xem nhanh minh chứng Lightbox: Zoom in/out, xoay ảnh 90°, nút mở Drive gốc, duyệt tuần tự Next/Prev.
+- Chức năng xuất báo cáo: Excel (.xlsx), ảnh PNG (.png), sao chép ảnh vào clipboard để dán Zalo, copy văn bản nhắc nhở Zalo.
+- Quản lý danh sách giáo viên: bôi đen copy/paste trực tiếp từ Excel, thêm/sửa/xóa, mã PIN cá nhân, reset PIN về mặc định (1234).
+- Vòng đời trạng thái công việc: Đang diễn ra, Quá hạn, Đã kết thúc sớm, Cho phép nộp muộn (gắn cờ LATE).

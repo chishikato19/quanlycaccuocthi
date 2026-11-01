@@ -4,21 +4,32 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding initial data...');
 
-  // Xóa dữ liệu cũ nếu có
+  // Xóa dữ liệu cũ
   await prisma.submission.deleteMany();
   await prisma.competitionAssignee.deleteMany();
   await prisma.competition.deleteMany();
   await prisma.teacher.deleteMany();
 
-  // Danh sách tổ chuyên môn
-  const sampleTeachers = [
-    // Ban Giám Hiệu & Quản trị
-    { name: 'Nguyễn Văn An (Hiệu trưởng)', department: 'Ban Giám Hiệu', role: 'SUPER_ADMIN', pinCode: '1234', phone: '0901234561' },
-    { name: 'Trần Thị Bích (Phó Hiệu trưởng)', department: 'Ban Giám Hiệu', role: 'ADMIN', pinCode: '1234', phone: '0901234562' },
-    { name: 'Lê Hoàng Cường (Tổ trưởng Toán)', department: 'Toán - Tin', role: 'ADMIN', pinCode: '1234', phone: '0901234563' },
-    { name: 'Phạm Thị Dung (Tổ trưởng Văn)', department: 'Ngữ Văn', role: 'ADMIN', pinCode: '1234', phone: '0901234564' },
+  // 1. TÀI KHOẢN TỔNG QUẢN TRỊ CẤP CAO (SUPER ADMIN) - TÁCH BIỆT HOÀN TOÀN KHỎI DANH SÁCH GIÁO VIÊN
+  const superAdmin = await prisma.teacher.create({
+    data: {
+      name: 'Quản Trị Hệ Thống (Super Admin)',
+      department: 'Hệ Thống',
+      phone: 'admin', // Tên đăng nhập riêng: admin
+      role: 'SUPER_ADMIN',
+      pinCode: '1234',
+      isActive: true,
+    },
+  });
+
+  // 2. DANH SÁCH GIÁO VIÊN & NHÂN VIÊN TRƯỜNG (Đối tượng thực hiện các cuộc thi)
+  const schoolTeachers = [
+    // Ban Giám Hiệu
+    { name: 'Thầy Nguyễn Văn An', department: 'Ban Giám Hiệu', role: 'ADMIN', pinCode: '1234', phone: '0901234561' },
+    { name: 'Cô Trần Thị Bích', department: 'Ban Giám Hiệu', role: 'ADMIN', pinCode: '1234', phone: '0901234562' },
 
     // Tổ Toán - Tin
+    { name: 'Lê Hoàng Cường (Tổ trưởng)', department: 'Toán - Tin', role: 'ADMIN', pinCode: '1234', phone: '0901234563' },
     { name: 'Vũ Đức Em', department: 'Toán - Tin', role: 'USER', pinCode: '1234' },
     { name: 'Đỗ Thị Giang', department: 'Toán - Tin', role: 'USER', pinCode: '1234' },
     { name: 'Bùi Văn Hải', department: 'Toán - Tin', role: 'USER', pinCode: '1234' },
@@ -26,6 +37,7 @@ async function main() {
     { name: 'Đặng Tuấn Kiệt', department: 'Toán - Tin', role: 'USER', pinCode: '1234' },
 
     // Tổ Ngữ Văn
+    { name: 'Phạm Thị Dung (Tổ trưởng)', department: 'Ngữ Văn', role: 'ADMIN', pinCode: '1234', phone: '0901234564' },
     { name: 'Hoàng Thị Lan', department: 'Ngữ Văn', role: 'USER', pinCode: '1234' },
     { name: 'Trịnh Minh Long', department: 'Ngữ Văn', role: 'USER', pinCode: '1234' },
     { name: 'Phan Tuyết Mai', department: 'Ngữ Văn', role: 'USER', pinCode: '1234' },
@@ -33,39 +45,38 @@ async function main() {
     { name: 'Dương Văn Oanh', department: 'Ngữ Văn', role: 'USER', pinCode: '1234' },
 
     // Tổ Ngoại Ngữ
-    { name: 'Lý Quốc Phúc', department: 'Ngoại Ngữ', role: 'USER', pinCode: '1234' },
+    { name: 'Lý Quốc Phúc (Tổ trưởng)', department: 'Ngoại Ngữ', role: 'ADMIN', pinCode: '1234' },
     { name: 'Đào Thu Quỳnh', department: 'Ngoại Ngữ', role: 'USER', pinCode: '1234' },
     { name: 'Hồ Minh Sơn', department: 'Ngoại Ngữ', role: 'USER', pinCode: '1234' },
     { name: 'Tạ Thị Tâm', department: 'Ngoại Ngữ', role: 'USER', pinCode: '1234' },
     { name: 'Mai Văn Uy', department: 'Ngoại Ngữ', role: 'USER', pinCode: '1234' },
 
-    // Tổ KHTN (Lý - Hóa - Sinh)
+    // Tổ Khoa Học Tự Nhiên
     { name: 'Cao Thị Vân', department: 'Khoa Học Tự Nhiên', role: 'USER', pinCode: '1234' },
     { name: 'Lương Văn Xuân', department: 'Khoa Học Tự Nhiên', role: 'USER', pinCode: '1234' },
     { name: 'Nguyễn Như Ý', department: 'Khoa Học Tự Nhiên', role: 'USER', pinCode: '1234' },
     { name: 'Trần Đại Nghĩa', department: 'Khoa Học Tự Nhiên', role: 'USER', pinCode: '1234' },
 
-    // Tổ KHXH (Sử - Địa - GDCD)
+    // Tổ Khoa Học Xã Hội
     { name: 'Vũ Thị Kim Chi', department: 'Khoa Học Xã Hội', role: 'USER', pinCode: '1234' },
     { name: 'Đặng Hữu Phước', department: 'Khoa Học Xã Hội', role: 'USER', pinCode: '1234' },
     { name: 'Lê Thị Thu Thảo', department: 'Khoa Học Xã Hội', role: 'USER', pinCode: '1234' },
     { name: 'Phạm Quang Vinh', department: 'Khoa Học Xã Hội', role: 'USER', pinCode: '1234' },
 
-    // Tổ Văn Phòng & Khác
+    // Tổ Văn Phòng
     { name: 'Lâm Văn Tài (Văn thư)', department: 'Tổ Văn Phòng', role: 'ADMIN', pinCode: '1234', phone: '0912345678' },
     { name: 'Đinh Thị Loan (Kế toán)', department: 'Tổ Văn Phòng', role: 'USER', pinCode: '1234' },
     { name: 'Nguyễn Thị Hằng (Y tế)', department: 'Tổ Văn Phòng', role: 'USER', pinCode: '1234' },
   ];
 
   const createdTeachers = [];
-  for (const t of sampleTeachers) {
+  for (const t of schoolTeachers) {
     const teacher = await prisma.teacher.create({ data: t });
     createdTeachers.push(teacher);
   }
-  console.log(`Created ${createdTeachers.length} teachers.`);
+  console.log(`Created Super Admin & ${createdTeachers.length} school teachers.`);
 
-  // Tạo cuộc thi mẫu 1: Đang diễn ra
-  const superAdmin = createdTeachers[0];
+  // 3. TẠO CUỘC THI MẪU (CHỈ GÁN CHO GIÁO VIÊN TRƯỜNG, KHÔNG GÁN SUPER ADMIN)
   const activeDeadline = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000); // 5 ngày nữa
   const comp1 = await prisma.competition.create({
     data: {
@@ -80,7 +91,7 @@ async function main() {
     },
   });
 
-  // Gán tất cả giáo viên vào cuộc thi 1
+  // Gán tất cả giáo viên trường (không gán Super Admin)
   for (const t of createdTeachers) {
     await prisma.competitionAssignee.create({
       data: {
@@ -90,9 +101,8 @@ async function main() {
     });
   }
 
-  // Giả lập 1 vài giáo viên đã nộp minh chứng
-  const submittedTeachers = createdTeachers.slice(2, 8);
-  for (const t of submittedTeachers) {
+  // Giả lập 1 vài giáo viên đã nộp
+  for (const t of createdTeachers.slice(0, 6)) {
     await prisma.submission.create({
       data: {
         competitionId: comp1.id,
@@ -108,8 +118,8 @@ async function main() {
     });
   }
 
-  // Tạo cuộc thi mẫu 2: Đã quá hạn (để kiểm thử chức năng nộp muộn)
-  const pastDeadline = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000); // Quá hạn 2 ngày trước
+  // Cuộc thi mẫu 2: Quá hạn
+  const pastDeadline = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
   const comp2 = await prisma.competition.create({
     data: {
       title: 'Hội thi Tìm hiểu An toàn Giao thông và Pháp luật Việt Nam',
@@ -117,7 +127,7 @@ async function main() {
       link: 'https://atgt.gov.vn',
       deadline: pastDeadline,
       status: 'ACTIVE',
-      allowLateSubmission: true, // Vẫn cho nộp khi quá hạn
+      allowLateSubmission: true,
       allowViewProgress: true,
       creatorId: superAdmin.id,
     },

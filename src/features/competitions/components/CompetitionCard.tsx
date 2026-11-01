@@ -5,14 +5,11 @@ import { CompetitionDto } from "@/types";
 import { formatDateTime, getRemainingTimeText, isOverdue } from "@/lib/utils";
 import {
   Calendar,
-  Clock,
   ExternalLink,
   CheckCircle2,
   AlertCircle,
-  FileText,
   Upload,
   BarChart3,
-  MoreVertical,
   Edit,
   FastForward,
   StopCircle,
@@ -55,26 +52,26 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all overflow-hidden flex flex-col">
       {/* Top Banner & Status */}
-      <div className="p-5 pb-3">
-        <div className="flex items-start justify-between gap-3 mb-2">
+      <div className="p-4 sm:p-5 pb-3">
+        <div className="flex items-start justify-between gap-2 mb-2">
           {/* Huy hiệu trạng thái */}
           <div className="flex flex-wrap items-center gap-1.5">
             {isClosed ? (
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+              <span className="text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                 Đã kết thúc sớm
               </span>
             ) : overdue ? (
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+              <span className="text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                 {remaining.text}
               </span>
             ) : (
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+              <span className="text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
                 {remaining.text}
               </span>
             )}
 
             {competition.allowLateSubmission && overdue && !isClosed && (
-              <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+              <span className="text-[9px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                 Cho phép nộp muộn
               </span>
             )}
@@ -82,7 +79,7 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
 
           {/* Menu thao tác Admin */}
           {isAdmin && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               <button
                 type="button"
                 onClick={() => onEdit(competition)}
@@ -148,7 +145,7 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
       </div>
 
       {/* Thông tin Hạn chót & Tiến độ */}
-      <div className="px-5 py-3 bg-slate-50/80 border-t border-slate-100 mt-auto space-y-2.5">
+      <div className="px-4 sm:px-5 py-3 bg-slate-50/80 border-t border-slate-100 mt-auto space-y-2.5">
         <div className="flex items-center justify-between text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -157,7 +154,7 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
           <span className="font-medium text-slate-700">{formatDateTime(competition.deadline)}</span>
         </div>
 
-        {/* Tiến độ hoàn thành (Hiện khi là Admin HOẶC khi bật allowViewProgress) */}
+        {/* Tiến độ hoàn thành */}
         {(isAdmin || competition.allowViewProgress) && (
           <div>
             <div className="flex items-center justify-between text-[11px] mb-1">
@@ -180,16 +177,16 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
           <div className="pt-1">
             {hasUserSubmitted ? (
               <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 text-emerald-800 font-semibold">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>
+                <div className="flex items-center gap-1.5 text-emerald-800 font-semibold truncate mr-1">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="truncate">
                     {userSub?.status === "LATE" ? "Đã nộp (Muộn)" : "Đã hoàn thành nộp"}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => onOpenSubmit(competition)}
-                  className="text-[11px] text-emerald-700 underline font-medium hover:text-emerald-900"
+                  className="text-[11px] text-emerald-700 underline font-medium hover:text-emerald-900 shrink-0"
                 >
                   Nộp lại ảnh
                 </button>
@@ -197,7 +194,7 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
             ) : (
               <div className="p-2 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5 text-rose-800 font-semibold">
-                  <AlertCircle className="w-4 h-4 text-rose-600" />
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>Chưa nộp minh chứng</span>
                 </div>
               </div>
@@ -206,26 +203,26 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
         )}
       </div>
 
-      {/* Hành động dưới cùng */}
-      <div className="p-3 bg-white border-t border-slate-100 flex items-center gap-2">
-        {/* Nút xem báo cáo (Dành cho Admin hoặc nếu muốn xem) */}
+      {/* Hành động dưới cùng - Tối ưu nút bấm cảm ứng ngón tay */}
+      <div className="p-3 bg-white border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        {/* Nút xem báo cáo (Dành cho Admin) */}
         {isAdmin && (
           <button
             type="button"
             onClick={() => onOpenReport(competition)}
-            className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+            className="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors min-h-[42px]"
           >
             <BarChart3 className="w-3.5 h-3.5 text-sky-600" />
             <span>Xem Báo Cáo & Minh Chứng</span>
           </button>
         )}
 
-        {/* Nút nộp minh chứng (Dành cho giáo viên được giao hoặc admin tự nộp) */}
+        {/* Nút nộp minh chứng */}
         {(!overdue || competition.allowLateSubmission) && !isClosed && (
           <button
             type="button"
             onClick={() => onOpenSubmit(competition)}
-            className={`py-2 px-3 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs ${
+            className={`py-2.5 px-3 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs min-h-[42px] ${
               isAdmin
                 ? "bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200"
                 : "flex-1 bg-sky-600 hover:bg-sky-700 text-white shadow-sky-600/20"

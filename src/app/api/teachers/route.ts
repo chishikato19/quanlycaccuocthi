@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-// Lấy danh sách giáo viên
-export async function GET() {
+// Lấy danh sách giáo viên trường
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const includeSuperAdmin = searchParams.get("includeSuperAdmin") === "true";
+
+    const whereClause: Record<string, unknown> = { isActive: true };
+    // Mặc định tách tài khoản Super Admin ra khỏi danh sách giáo viên trường
+    if (!includeSuperAdmin) {
+      whereClause.role = { not: "SUPER_ADMIN" };
+    }
+
     const teachers = await db.teacher.findMany({
-      where: { isActive: true },
+      where: whereClause,
       orderBy: [
         { department: "asc" },
         { name: "asc" },
@@ -46,7 +55,8 @@ export async function POST(req: Request) {
         name: name.trim(),
         department: department.trim(),
         phone: phone ? phone.trim() : null,
-        role: role || "USER",
+        // Chỉ cho phép gán ADMIN hoặc USER đối với giáo viên trường
+        role: role === "ADMIN" ? "ADMIN" : "USER",
         pinCode: defaultPin,
       },
       select: {
@@ -68,7 +78,7 @@ export async function POST(req: Request) {
   }
 }
 
-// Cập nhật thông tin giáo viên
+// Cập nhật thông tin giáo viên & Phân quyền Admin
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
@@ -84,7 +94,7 @@ export async function PUT(req: Request) {
         name: name.trim(),
         department: department.trim(),
         phone: phone ? phone.trim() : null,
-        role: role || "USER",
+        role: role === "ADMIN" ? "ADMIN" : "USER",
       },
       select: {
         id: true,
@@ -113,6 +123,12 @@ export async function DELETE(req: Request) {
 
     if (!id) {
       return NextResponse.json({ error: "Thiếu ID giáo viên" }, { status: 400 });
+    }
+
+    // Không cho phép xóa tài khoản Super Admin
+    const target = await db.teacher.findUnique({ where: { id } });
+    if (target?.role === "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Không thể xóa tài khoản Tổng Quản Trị" }, { status: 403 });
     }
 
     await db.teacher.update({
