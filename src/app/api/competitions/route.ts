@@ -159,6 +159,23 @@ export async function POST(req: Request) {
       parentFolderId: masterParentFolder,
     });
 
+    // Lọc bỏ tài khoản Super Admin ra khỏi danh sách người được gán cuộc thi
+    const superAdminIds = (
+      await db.teacher.findMany({
+        where: {
+          OR: [
+            { role: "SUPER_ADMIN" },
+            { phone: "admin" },
+            { name: { contains: "Quản Trị" } },
+            { department: "Hệ Thống" },
+          ],
+        },
+        select: { id: true },
+      })
+    ).map((a) => a.id);
+
+    const safeAssigneeIds = assigneeIds.filter((id: string) => !superAdminIds.includes(id));
+
     // 2. Tạo bản ghi cuộc thi kèm ID và Link thư mục con trên Drive
     const competition = await db.competition.create({
       data: {
@@ -173,7 +190,7 @@ export async function POST(req: Request) {
         driveFolderUrl: subfolderResult.folderUrl,
         creatorId,
         assignees: {
-          create: assigneeIds.map((tId: string) => ({
+          create: safeAssigneeIds.map((tId: string) => ({
             teacherId: tId,
           })),
         },

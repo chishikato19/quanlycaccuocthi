@@ -77,8 +77,25 @@ export async function PUT(
         where: { competitionId: params.id },
       });
 
+      // Lọc bỏ tài khoản Super Admin ra khỏi người tham gia
+      const superAdminIds = (
+        await db.teacher.findMany({
+          where: {
+            OR: [
+              { role: "SUPER_ADMIN" },
+              { phone: "admin" },
+              { name: { contains: "Quản Trị" } },
+              { department: "Hệ Thống" },
+            ],
+          },
+          select: { id: true },
+        })
+      ).map((a) => a.id);
+
+      const safeAssigneeIds = assigneeIds.filter((id: string) => !superAdminIds.includes(id));
+
       await db.competitionAssignee.createMany({
-        data: assigneeIds.map((tId: string) => ({
+        data: safeAssigneeIds.map((tId: string) => ({
           competitionId: params.id,
           teacherId: tId,
         })),

@@ -437,6 +437,7 @@ export default function HomePage() {
             {activeTab === "TEACHERS" && isAdmin && (
               <TeacherTable
                 teachers={teachers}
+                onRefresh={loadData}
                 onOpenAdd={() => {
                   setSelectedTeacherForEdit(null);
                   setIsTeacherFormOpen(true);

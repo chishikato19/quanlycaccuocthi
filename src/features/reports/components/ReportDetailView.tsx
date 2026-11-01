@@ -107,7 +107,13 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
   // Sao chép nhanh danh sách giáo viên chưa nộp để gửi vào nhóm Zalo
   const handleCopyZaloReminder = () => {
     if (!reportData) return;
-    const notSubmittedRows = reportData.rows.filter(r => !r.isSubmitted);
+    const safeRows = reportData.rows.filter(r => {
+      if (r.department === "Hệ Thống") return false;
+      if (r.teacherName.toLowerCase().includes("quản trị") || r.teacherName.toLowerCase().includes("super admin")) return false;
+      return true;
+    });
+
+    const notSubmittedRows = safeRows.filter(r => !r.isSubmitted);
     if (notSubmittedRows.length === 0) {
       alert("Tất cả giáo viên đã hoàn thành nộp minh chứng!");
       return;
@@ -154,7 +160,13 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
 
   const folderUrl = competition.driveFolderUrl || (competition.driveFolderId ? `https://drive.google.com/drive/folders/${competition.driveFolderId}` : null);
 
-  const filteredRows = rows.filter(r => {
+  const safeRows = rows.filter(r => {
+    if (r.department === "Hệ Thống") return false;
+    if (r.teacherName.toLowerCase().includes("quản trị") || r.teacherName.toLowerCase().includes("super admin")) return false;
+    return true;
+  });
+
+  const filteredRows = safeRows.filter(r => {
     if (statusFilter === "SUBMITTED" && !r.isSubmitted) return false;
     if (statusFilter === "NOT_SUBMITTED" && r.isSubmitted) return false;
     if (searchQuery.trim()) {

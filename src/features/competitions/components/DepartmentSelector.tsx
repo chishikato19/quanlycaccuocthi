@@ -19,10 +19,19 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedDepartments, setExpandedDepartments] = useState<Record<string, boolean>>({});
 
-  // Nhóm giáo viên theo tổ bộ môn
+  // Nhóm giáo viên theo tổ bộ môn (Loại bỏ tài khoản Super Admin)
   const departmentGroups = useMemo(() => {
     const groups: Record<string, TeacherDto[]> = {};
     for (const t of teachers) {
+      if (
+        t.role === "SUPER_ADMIN" ||
+        t.phone === "admin" ||
+        t.department === "Hệ Thống" ||
+        t.name.toLowerCase().includes("quản trị") ||
+        t.name.toLowerCase().includes("super admin")
+      ) {
+        continue;
+      }
       const dept = t.department || "Khác";
       if (!groups[dept]) groups[dept] = [];
       groups[dept].push(t);

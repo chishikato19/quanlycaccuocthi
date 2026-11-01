@@ -81,7 +81,7 @@ export async function GET(
         assignees: {
           include: {
             teacher: {
-              select: { id: true, name: true, department: true, phone: true },
+              select: { id: true, name: true, department: true, phone: true, role: true },
             },
           },
           orderBy: [
@@ -109,7 +109,17 @@ export async function GET(
       submissionMap.set(sub.teacherId, sub);
     }
 
-    const reportRows = competition.assignees.map((a, index) => {
+    // LOẠI BỎ TỔNG QUẢN TRỊ (SUPER ADMIN) KHỎI BÁO CÁO VÀ DANH SÁCH CHƯA NỘP
+    const validAssignees = competition.assignees.filter((a) => {
+      const t = a.teacher;
+      if (!t) return false;
+      if (t.role === "SUPER_ADMIN" || t.phone === "admin") return false;
+      if (t.department === "Hệ Thống") return false;
+      if (t.name.toLowerCase().includes("quản trị") || t.name.toLowerCase().includes("super admin")) return false;
+      return true;
+    });
+
+    const reportRows = validAssignees.map((a, index) => {
       const sub = submissionMap.get(a.teacherId);
       const isSubmitted = !!sub;
 

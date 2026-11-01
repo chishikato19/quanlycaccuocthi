@@ -40,6 +40,14 @@ if (dbUrl && (dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://
   } catch (err) {
     console.error('⚠️ Lỗi khi chạy seed-if-empty:', err.message);
   }
+
+  // Tự động dọn dẹp Super Admin khỏi danh sách tham gia cuộc thi
+  try {
+    console.log('🧹 Đang làm sạch dữ liệu: loại bỏ Super Admin khỏi danh sách tham gia cuộc thi...');
+    execSync('node scripts/cleanup-admin.js', { stdio: 'inherit' });
+  } catch (err) {
+    console.error('⚠️ Lỗi cleanup-admin:', err.message);
+  }
 } else {
   console.warn('\n⚠️ [CHÚ Ý]: Chưa cấu hình biến môi trường DATABASE_URL dạng PostgreSQL.');
   console.warn('👉 Hãy vào Vercel Dashboard -> Tab "Storage" -> Tạo "Neon Postgres", hoặc vào Settings -> Environment Variables để thêm DATABASE_URL.\n');
