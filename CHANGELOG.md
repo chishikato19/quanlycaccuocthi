@@ -6,6 +6,16 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.5.2] - 2026-11-02
+### Tự Động Khởi Tạo Thư Mục Cuộc Thi Trên Drive Ngay Khi Tạo Cuộc Thi
+- **Tự động tạo thư mục con trên Google Drive khi tạo cuộc thi ([`/api/competitions`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/competitions/route.ts)):**
+  - Tự động gọi Webhook Google Apps Script để tạo sẵn thư mục `[Cuộc thi] Tên cuộc thi` ngay khi Admin bấm tạo cuộc thi, không cần đợi giáo viên nộp bài.
+  - Lưu trữ trực tiếp đường link mở thư mục Google Drive của từng cuộc thi vào cơ sở dữ liệu.
+- **Tính năng tạo hàng loạt thư mục cuộc thi trên Drive ([`/api/drive/sync`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/drive/sync/route.ts)):**
+  - Khi bấm nút `[⚡ Đẩy ảnh đã nộp lên Drive]`, hệ thống tự động quét và tạo thư mục cho toàn bộ các cuộc thi đã tạo trước đó trên Google Drive của trường.
+
+---
+
 ## [1.5.1] - 2026-11-01
 ### Khắc phục Lỗi Quyền Hạn Super Admin, Dọn Dẹp Link 404 & Công Cụ Test Webhook Drive
 - **Khắc phục lỗi mất quyền Super Admin khi lưu Drive ([`/api/teachers`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/teachers/route.ts)):**

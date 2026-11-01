@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { uploadToGoogleDrive, parseDriveConfig } from "@/lib/google-drive";
+import { uploadToGoogleDrive, ensureCompetitionSubfolder, parseDriveConfig } from "@/lib/google-drive";
 import { isDatabaseConfigured } from "@/lib/mock-data";
 
 export async function POST(req: Request) {
@@ -31,7 +31,35 @@ export async function POST(req: Request) {
 
     const schoolDrive = parseDriveConfig(superAdmin?.driveFolderId);
 
-    // Lấy tất cả bài nộp có ảnh minh chứng
+    // 1. Tự động tạo thư mục con trên Google Drive cho tất cả cuộc thi nếu chưa có
+    const allComps = await db.competition.findMany({
+      where: competitionId ? { id: competitionId } : {},
+      select: { id: true, title: true, driveFolderId: true },
+    });
+
+    let foldersCreated = 0;
+    for (const comp of allComps) {
+      if (!comp.driveFolderId || comp.driveFolderId.includes("mock")) {
+        const res = await ensureCompetitionSubfolder({
+          competitionTitle: comp.title,
+          parentFolderId: schoolDrive.folderId,
+          webhookUrl: schoolDrive.webhookUrl,
+        });
+
+        if (!res.isMock && res.folderId) {
+          await db.competition.update({
+            where: { id: comp.id },
+            data: {
+              driveFolderId: res.folderId,
+              driveFolderUrl: res.folderUrl || `https://drive.google.com/drive/folders/${res.folderId}`,
+            },
+          });
+          foldersCreated++;
+        }
+      }
+    }
+
+    // 2. Lấy tất cả bài nộp có ảnh minh chứng để đẩy lên Google Drive
     const whereClause: Record<string, unknown> = {
       localImageUrl: { not: null },
     };
@@ -100,12 +128,24 @@ export async function POST(req: Request) {
       }
     }
 
+    let resultMsg = "";
+    if (foldersCreated > 0 && successCount > 0) {
+      resultMsg = `Đã tạo ${foldersCreated} thư mục cuộc thi và đồng bộ ${successCount} ảnh minh chứng lên Google Drive!`;
+    } else if (foldersCreated > 0) {
+      resultMsg = `Đã tạo thành công ${foldersCreated} thư mục cuộc thi trên Google Drive!`;
+    } else if (successCount > 0) {
+      resultMsg = `Đã đồng bộ ${successCount}/${submissions.length} ảnh minh chứng lên Google Drive!`;
+    } else {
+      resultMsg = `Đã kiểm tra Google Drive (Chưa có bài nộp mới cần đồng bộ).`;
+    }
+
     return NextResponse.json({
       success: true,
       totalFound: submissions.length,
       syncedCount: successCount,
+      foldersCreated,
       errors: errors.length > 0 ? errors : undefined,
-      message: `Đã đồng bộ ${successCount}/${submissions.length} minh chứng lên Google Drive!`,
+      message: resultMsg,
     });
   } catch (error) {
     console.error("Sync drive error:", error);

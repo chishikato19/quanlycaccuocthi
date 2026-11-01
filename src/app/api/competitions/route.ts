@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { ensureCompetitionSubfolder, extractDriveFolderId } from "@/lib/google-drive";
+import { ensureCompetitionSubfolder, extractDriveFolderId, parseDriveConfig } from "@/lib/google-drive";
 import { isDatabaseConfigured, mockCompetitions } from "@/lib/mock-data";
 
 export async function GET(req: Request) {
@@ -146,17 +146,33 @@ export async function POST(req: Request) {
     }
 
     // 1. TỰ ĐỘNG TẠO THƯ MỤC CON CHO CUỘC THI NÀY TRONG THƯ MỤC CHUNG
+    const superAdmin = await db.teacher.findFirst({
+      where: {
+        OR: [
+          { role: "SUPER_ADMIN" },
+          { phone: "admin" },
+          { name: { contains: "Quản Trị" } },
+          { department: "Hệ Thống" },
+        ],
+      },
+      select: { driveFolderId: true },
+    });
+
     const creator = await db.teacher.findUnique({
       where: { id: creatorId },
       select: { driveFolderId: true },
     });
 
-    // Thư mục cha chung (Ưu tiên thư mục Admin cấu hình riêng, nếu không lấy của Super Admin)
-    const masterParentFolder = driveFolderId || creator?.driveFolderId || process.env.GOOGLE_DRIVE_FOLDER_ID;
+    const schoolDriveConfig = parseDriveConfig(superAdmin?.driveFolderId || creator?.driveFolderId);
+    const customConfig = driveFolderId ? parseDriveConfig(driveFolderId) : null;
+
+    const resolvedParentId = customConfig?.folderId || schoolDriveConfig.folderId;
+    const resolvedWebhookUrl = customConfig?.webhookUrl || schoolDriveConfig.webhookUrl;
 
     const subfolderResult = await ensureCompetitionSubfolder({
       competitionTitle: title,
-      parentFolderId: masterParentFolder,
+      parentFolderId: resolvedParentId,
+      webhookUrl: resolvedWebhookUrl,
     });
 
     // Lọc bỏ tài khoản Super Admin ra khỏi danh sách người được gán cuộc thi
