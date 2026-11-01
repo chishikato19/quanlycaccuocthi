@@ -6,6 +6,17 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.3.2] - 2026-11-01
+### Thêm mới & Cứu trợ khẩn cấp (Emergency Fallback & Zero-Config Live)
+- **Tầng dữ liệu dự phòng Zero-Downtime ([`src/lib/mock-data.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/lib/mock-data.ts)):**
+  - Đảm bảo **người dùng luôn luôn đăng nhập được vào Super Admin** (`admin` / `1234`) ngay lập tức trên Vercel kể cả khi chưa tạo cơ sở dữ liệu đám mây PostgreSQL.
+  - Toàn bộ các API chính (`/api/auth/login`, `/api/teachers`, `/api/competitions`, `/api/reports`, `/api/submissions`) tự động chuyển sang chế độ Demo thông minh nếu chưa có biến môi trường `DATABASE_URL`.
+- **Thanh thông báo trạng thái CSDL trực quan trên giao diện:**
+  - Bổ sung thanh thông báo ở đầu trang khi hệ thống đang chạy chế độ Xem trước, hướng dẫn 1-click kích hoạt PostgreSQL trên Vercel.
+  - Khi người dùng thêm database PostgreSQL trên Vercel, hệ thống tự động nhận diện và chuyển sang lưu trữ vĩnh viễn không cần sửa code.
+
+---
+
 ## [1.3.1] - 2026-11-01
 ### Sửa lỗi & Tương thích Vercel Serverless (Fixed & Vercel Readiness)
 - **Khắc phục lỗi không đăng nhập được Super Admin trên Vercel (Lỗi CSDL Serverless):**

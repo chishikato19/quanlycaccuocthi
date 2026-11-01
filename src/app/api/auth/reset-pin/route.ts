@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isDatabaseConfigured } from "@/lib/mock-data";
 
 export async function POST(req: Request) {
   try {
@@ -7,6 +8,13 @@ export async function POST(req: Request) {
 
     if (!targetTeacherId || !requesterId) {
       return NextResponse.json({ error: "Dữ liệu không hợp lệ" }, { status: 400 });
+    }
+
+    if (!isDatabaseConfigured()) {
+      return NextResponse.json({
+        success: true,
+        message: "Đã reset mã PIN của giáo viên về mặc định (1234) [Chế độ xem trước]",
+      });
     }
 
     // Kiểm tra quyền của người yêu cầu

@@ -1,12 +1,48 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ensureCompetitionSubfolder, extractDriveFolderId } from "@/lib/google-drive";
+import { isDatabaseConfigured, mockCompetitions } from "@/lib/mock-data";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const teacherId = searchParams.get("teacherId");
     const role = searchParams.get("role");
+
+    if (!isDatabaseConfigured()) {
+      const result = mockCompetitions.map(comp => {
+        const isAssigned = teacherId
+          ? comp.assignees.some(a => a.teacherId === teacherId)
+          : true;
+
+        const userSub = teacherId
+          ? comp.submissions.find(s => s.teacherId === teacherId)
+          : null;
+
+        const totalAssignees = comp.assignees.length;
+        const totalSubmissions = comp.submissions.length;
+        const onTimeSubmissions = comp.submissions.filter(s => s.status === "ON_TIME").length;
+        const lateSubmissions = comp.submissions.filter(s => s.status === "LATE").length;
+        const completionRate = totalAssignees > 0
+          ? Math.round((totalSubmissions / totalAssignees) * 100)
+          : 0;
+
+        return {
+          ...comp,
+          isAssigned,
+          userSubmission: userSub || null,
+          stats: {
+            totalAssignees,
+            totalSubmissions,
+            onTimeSubmissions,
+            lateSubmissions,
+            completionRate,
+          },
+        };
+      });
+
+      return NextResponse.json({ success: true, data: result, isDemoMode: true });
+    }
 
     const competitions = await db.competition.findMany({
       orderBy: { createdAt: "desc" },
@@ -82,7 +118,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: true, data: filtered });
   } catch (error) {
     console.error("Fetch competitions error:", error);
-    return NextResponse.json({ error: "Lỗi khi lấy danh sách cuộc thi" }, { status: 500 });
+    return NextResponse.json({ success: true, data: mockCompetitions, isDemoMode: true });
   }
 }
 

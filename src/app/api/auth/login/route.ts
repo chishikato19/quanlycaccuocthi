@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isDatabaseConfigured, mockSuperAdmin, mockTeachers } from "@/lib/mock-data";
 
 export async function POST(req: Request) {
   try {
@@ -9,7 +10,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Vui lòng nhập mã PIN" }, { status: 400 });
     }
 
-    // ĐĂNG NHẬP DÀNH RIÊNG CHO TỔNG QUẢN TRỊ (SUPER ADMIN)
+    // NẾU CHƯA CẤU HÌNH DATABASE_URL: CHẠY TRỰC TIẾP Ở CHẾ ĐỘ FALLBACK/DEMO KHÔNG LỖI
+    if (!isDatabaseConfigured()) {
+      if (isSuperAdminLogin || username) {
+        const inputUsername = (username || "").trim().toLowerCase();
+        if (inputUsername === "admin" || !inputUsername) {
+          if (pinCode.trim() === "1234") {
+            const { pinCode: _, ...safeUser } = mockSuperAdmin;
+            return NextResponse.json({ success: true, user: safeUser, isDemoMode: true });
+          }
+          return NextResponse.json({ error: "Mật mã Tổng Quản Trị không chính xác" }, { status: 401 });
+        }
+        return NextResponse.json({ error: "Tài khoản Tổng Quản Trị không tồn tại" }, { status: 404 });
+      }
+
+      if (!teacherId) {
+        return NextResponse.json({ error: "Vui lòng chọn tên giáo viên" }, { status: 400 });
+      }
+
+      const teacher = mockTeachers.find((t) => t.id === teacherId);
+      if (!teacher) {
+        return NextResponse.json({ error: "Không tìm thấy thông tin giáo viên" }, { status: 404 });
+      }
+      if (teacher.pinCode !== pinCode.trim()) {
+        return NextResponse.json({ error: "Mã PIN không chính xác" }, { status: 401 });
+      }
+
+      const { pinCode: _, ...safeUser } = teacher;
+      return NextResponse.json({ success: true, user: safeUser, isDemoMode: true });
+    }
+
+    // ĐĂNG NHẬP DÀNH RIÊNG CHO TỔNG QUẢN TRỊ (SUPER ADMIN) KHI ĐÃ KẾT NỐI DATABASE
     if (isSuperAdminLogin || username) {
       const inputUsername = (username || "").trim().toLowerCase();
       let superAdmin = await db.teacher.findFirst({
@@ -76,19 +107,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, user: safeUser });
   } catch (error: unknown) {
     console.error("Login error:", error);
-    const errMessage = error instanceof Error ? error.message : String(error);
-    if (
-      errMessage.includes("Can't reach database server") ||
-      errMessage.includes("database") ||
-      errMessage.includes("connect") ||
-      errMessage.includes("P1001") ||
-      errMessage.includes("P2021")
-    ) {
-      return NextResponse.json(
-        { error: "Chưa kết nối được Cơ sở dữ liệu (PostgreSQL). Vui lòng cấu hình DATABASE_URL trên Vercel." },
-        { status: 500 }
-      );
-    }
-    return NextResponse.json({ error: "Đã xảy ra lỗi máy chủ" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Chưa kết nối được Cơ sở dữ liệu (PostgreSQL). Vui lòng cấu hình DATABASE_URL trên Vercel." },
+      { status: 500 }
+    );
   }
 }

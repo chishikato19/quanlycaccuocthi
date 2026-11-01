@@ -45,6 +45,7 @@ export default function HomePage() {
   const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
   const [teachers, setTeachers] = useState<TeacherDto[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   // Selected for Report View
   const [viewingReportCompId, setViewingReportCompId] = useState<string | null>(null);
@@ -74,6 +75,16 @@ export default function HomePage() {
   const loadData = useCallback(async () => {
     setIsLoadingData(true);
     try {
+      // 0. Kiểm tra trạng thái cơ sở dữ liệu
+      fetch("/api/status")
+        .then((r) => r.json())
+        .then((s) => {
+          if (!s.isDatabaseConfigured) {
+            setIsDemoMode(true);
+          }
+        })
+        .catch(() => {});
+
       // 1. Tải danh sách cuộc thi
       const compUrl = currentUser
         ? `/api/competitions?teacherId=${currentUser.id}&role=${currentUser.role}`
@@ -251,6 +262,21 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      {/* Banner thông báo chế độ Xem trước nếu chưa kết nối Database */}
+      {isDemoMode && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200/80 px-4 py-2 text-xs text-amber-900 flex items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2 max-w-4xl">
+            <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+            <span>
+              <strong>Chế độ Xem trước (Demo Mode):</strong> Dữ liệu đang hiển thị từ bộ nhớ mẫu do chưa kết nối PostgreSQL. Để lưu trữ vĩnh viễn trên Vercel: Vào Vercel Dashboard ➔ tab <strong>Storage</strong> ➔ bấm <strong>Create Database</strong> (chọn Neon Postgres).
+            </span>
+          </div>
+          <span className="shrink-0 bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full text-[10px] font-semibold hidden sm:inline-block">
+            Tự động đồng bộ
+          </span>
+        </div>
+      )}
 
       {/* Main Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">

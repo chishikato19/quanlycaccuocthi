@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isDatabaseConfigured } from "@/lib/mock-data";
 
 export async function POST(req: Request) {
   try {
@@ -11,6 +12,10 @@ export async function POST(req: Request) {
 
     if (newPin.trim().length < 4) {
       return NextResponse.json({ error: "Mã PIN mới phải có ít nhất 4 ký tự" }, { status: 400 });
+    }
+
+    if (!isDatabaseConfigured()) {
+      return NextResponse.json({ success: true, message: "Đổi mã PIN thành công (Chế độ xem trước)!" });
     }
 
     const teacher = await db.teacher.findUnique({

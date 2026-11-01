@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { uploadToGoogleDrive } from "@/lib/google-drive";
+import { isDatabaseConfigured } from "@/lib/mock-data";
 
 export async function POST(req: Request) {
   try {
@@ -16,6 +17,25 @@ export async function POST(req: Request) {
 
     if (!competitionId || !teacherId) {
       return NextResponse.json({ error: "Thông tin nộp bài không đầy đủ" }, { status: 400 });
+    }
+
+    if (!isDatabaseConfigured()) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          id: `demo-sub-${Date.now()}`,
+          competitionId,
+          teacherId,
+          status: "ON_TIME",
+          localImageUrl: base64Image || null,
+          driveFileUrl: null,
+          note: note || "",
+          submittedAt: new Date().toISOString(),
+          reviewStatus: "APPROVED",
+        },
+        message: "Nộp minh chứng thành công (Chế độ xem trước)",
+        isDemoMode: true,
+      });
     }
 
     const competition = await db.competition.findUnique({
