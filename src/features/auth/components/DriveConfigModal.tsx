@@ -13,6 +13,7 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
+  FlaskConical,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -38,6 +39,8 @@ export const DriveConfigModal: React.FC<DriveConfigModalProps> = ({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTestingWebhook, setIsTestingWebhook] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [showScriptGuide, setShowScriptGuide] = useState(false);
@@ -59,6 +62,7 @@ export const DriveConfigModal: React.FC<DriveConfigModalProps> = ({
     }
     setError("");
     setSuccess("");
+    setTestResult(null);
     setSyncResult(null);
   }, [currentUser, isOpen]);
 
@@ -67,6 +71,48 @@ export const DriveConfigModal: React.FC<DriveConfigModalProps> = ({
   const currentParsed = parseDriveConfig(currentUser.driveFolderId);
   const hasFolder = Boolean(currentParsed.folderId);
   const hasWebhook = Boolean(currentParsed.webhookUrl);
+
+  const handleTestWebhook = async () => {
+    if (!webhookInput.trim()) {
+      setError("Vui lòng dán link Webhook Google Apps Script trước khi kiểm tra!");
+      return;
+    }
+
+    setIsTestingWebhook(true);
+    setTestResult(null);
+    setError("");
+
+    try {
+      const res = await fetch("/api/drive/test-webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          webhookUrl: webhookInput.trim(),
+          folderId: folderInput.trim() || currentParsed.folderId,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTestResult({
+          success: true,
+          message: data.message || "Kết nối Webhook thành công 100%! Đã sẵn sàng lưu ảnh vào Drive.",
+        });
+      } else {
+        setTestResult({
+          success: false,
+          message: data.error || "Không thể kết nối đến Webhook Apps Script.",
+        });
+      }
+    } catch {
+      setTestResult({
+        success: false,
+        message: "Lỗi kết nối máy chủ khi kiểm tra Webhook.",
+      });
+    } finally {
+      setIsTestingWebhook(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +134,7 @@ export const DriveConfigModal: React.FC<DriveConfigModalProps> = ({
           name: currentUser.name,
           department: currentUser.department,
           phone: currentUser.phone,
-          role: currentUser.role,
+          role: isSuperAdmin ? "SUPER_ADMIN" : currentUser.role,
           driveFolderId: serialized,
         }),
       });
@@ -100,7 +146,10 @@ export const DriveConfigModal: React.FC<DriveConfigModalProps> = ({
             ? "Đã lưu thành công cấu hình Google Drive Nhà Trường!"
             : "Đã lưu cấu hình Google Drive cá nhân!"
         );
-        setCurrentUser(data.data);
+        setCurrentUser({
+          ...data.data,
+          role: isSuperAdmin ? "SUPER_ADMIN" : data.data.role,
+        });
         setTimeout(() => {
           onSuccess();
           onClose();
@@ -193,6 +242,23 @@ export const DriveConfigModal: React.FC<DriveConfigModalProps> = ({
           </div>
         )}
 
+        {testResult && (
+          <div
+            className={`p-3 text-xs rounded-xl border flex items-start gap-2 shrink-0 ${
+              testResult.success
+                ? "text-emerald-800 bg-emerald-50 border-emerald-200"
+                : "text-amber-900 bg-amber-50 border-amber-300"
+            }`}
+          >
+            {testResult.success ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            )}
+            <div className="flex-1 leading-relaxed">{testResult.message}</div>
+          </div>
+        )}
+
         {syncResult && (
           <div className="p-3 text-xs text-sky-700 bg-sky-50 border border-sky-200 rounded-xl flex items-center gap-2 shrink-0">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -279,7 +345,7 @@ export const DriveConfigModal: React.FC<DriveConfigModalProps> = ({
                   className="text-[11px] text-purple-700 hover:text-purple-900 font-medium flex items-center gap-0.5"
                 >
                   <HelpCircle className="w-3 h-3" />
-                  {showScriptGuide ? "Ẩn hướng dẫn" : "Cách cài đặt 2 phút"}
+                  {showScriptGuide ? "Ẩn hướng dẫn" : "Cách cài đặt chuẩn (2 phút)"}
                   {showScriptGuide ? (
                     <ChevronUp className="w-3 h-3" />
                   ) : (
@@ -288,21 +354,33 @@ export const DriveConfigModal: React.FC<DriveConfigModalProps> = ({
                 </button>
               </div>
 
-              <input
-                type="text"
-                value={webhookInput}
-                onChange={e => setWebhookInput(e.target.value)}
-                placeholder="https://script.google.com/macros/s/.../exec"
-                className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-slate-700"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={webhookInput}
+                  onChange={e => setWebhookInput(e.target.value)}
+                  placeholder="https://script.google.com/macros/s/.../exec"
+                  className="flex-1 px-3 py-2 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-slate-700"
+                />
+                <button
+                  type="button"
+                  onClick={handleTestWebhook}
+                  disabled={isTestingWebhook || !webhookInput.trim()}
+                  className="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 disabled:opacity-50 transition-colors"
+                  title="Kiểm tra xem Webhook đã mở quyền truy cập và sẵn sàng nhận ảnh chưa"
+                >
+                  <FlaskConical className={`w-3.5 h-3.5 ${isTestingWebhook ? "animate-spin text-purple-600" : ""}`} />
+                  {isTestingWebhook ? "Đang test..." : "Kiểm tra kết nối"}
+                </button>
+              </div>
 
               {/* Hướng dẫn cài đặt Apps Script chi tiết */}
               {showScriptGuide && (
                 <div className="mt-2.5 p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl text-xs text-purple-950 space-y-2.5">
                   <div className="font-bold text-purple-900">
-                    🚀 Hướng dẫn 3 bước cực dễ để tự động đưa ảnh vào Drive:
+                    🚀 Hướng dẫn 3 bước để tự động đưa ảnh vào Drive:
                   </div>
-                  <ol className="list-decimal pl-4 space-y-1.5 text-[11px] leading-relaxed text-slate-700">
+                  <ol className="list-decimal pl-4 space-y-2 text-[11px] leading-relaxed text-slate-700">
                     <li>
                       Mở Google Drive của trường &rarr; Bấm nút <b>Mới (+)</b> ở góc trái &rarr; Chọn <b>Ứng dụng khác</b> &rarr; <b>Google Apps Script</b>.
                     </li>
@@ -328,10 +406,15 @@ export const DriveConfigModal: React.FC<DriveConfigModalProps> = ({
                     </li>
                     <li>
                       Bấm nút xanh <b>Triển khai (Deploy)</b> ở góc trên bên phải &rarr; <b>Tùy chọn triển khai mới (New deployment)</b>:
-                      <ul className="list-disc pl-4 pt-1 space-y-0.5 text-slate-600">
+                      <ul className="list-disc pl-4 pt-1 space-y-1 text-slate-600">
                         <li>Chọn loại: <b>Ứng dụng web (Web app)</b>.</li>
-                        <li>Người thực hiện: <b>Tôi (Me)</b>.</li>
-                        <li>Ai có quyền truy cập: <b>Bất kỳ ai (Anyone)</b>.</li>
+                        <li>Người thực hiện (Execute as): <b>Tôi (Me)</b>.</li>
+                        <li className="font-bold text-red-600 bg-red-50 p-1 rounded border border-red-200">
+                          ⚠️ Ai có quyền truy cập (Who has access): BẮT BUỘC CHỌN &quot;Bất kỳ ai (Anyone)&quot;.
+                          <span className="block font-normal text-[10px] text-red-500 mt-0.5">
+                            (Nếu chọn &quot;Chỉ mình tôi&quot;, Google sẽ chặn máy chủ và không lưu được ảnh).
+                          </span>
+                        </li>
                       </ul>
                       Bấm <b>Triển khai</b> và dán đường link kết thúc bằng <code>/exec</code> vào ô số 2 ở trên!
                     </li>
@@ -340,7 +423,7 @@ export const DriveConfigModal: React.FC<DriveConfigModalProps> = ({
               )}
             </div>
 
-            {/* Nút bấm lưu */}
+            {/* Nút bấm lưu & đồng bộ */}
             <div className="flex items-center justify-between pt-2">
               <button
                 type="button"

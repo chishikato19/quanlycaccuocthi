@@ -401,7 +401,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                             <span>Xem ảnh</span>
                           </button>
 
-                          {r.driveFileUrl && (
+                          {r.driveFileUrl && !r.driveFileUrl.includes("drive-mock") && !r.driveFileUrl.includes("mock") && (
                             <a
                               href={r.driveFileUrl}
                               target="_blank"

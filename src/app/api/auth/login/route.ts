@@ -45,22 +45,46 @@ export async function POST(req: Request) {
       const inputUsername = (username || "").trim().toLowerCase();
       let superAdmin = await db.teacher.findFirst({
         where: {
-          role: "SUPER_ADMIN",
           isActive: true,
           OR: [
+            { role: "SUPER_ADMIN" },
             { phone: inputUsername },
+            { phone: "admin" },
             { name: { contains: "Admin" } },
+            { name: { contains: "Quản Trị" } },
           ],
         },
+        orderBy: [
+          { driveFolderId: "desc" },
+          { createdAt: "desc" },
+        ],
       });
 
-      // TỰ ĐỘNG KHỞI TẠO: Nếu trong CSDL chưa có bất kỳ Super Admin nào, tự động tạo tài khoản mặc định
+      // Nếu tài khoản bị mất role SUPER_ADMIN, tự động khôi phục ngay
+      if (superAdmin && superAdmin.role !== "SUPER_ADMIN") {
+        superAdmin = await db.teacher.update({
+          where: { id: superAdmin.id },
+          data: { role: "SUPER_ADMIN", phone: "admin" },
+        });
+      }
+
+      // TỰ ĐỘNG KHỞI TẠO: Nếu trong CSDL chưa có bất kỳ Super Admin nào
       if (!superAdmin && (inputUsername === "admin" || !inputUsername)) {
-        const superAdminCount = await db.teacher.count({
-          where: { role: "SUPER_ADMIN" },
+        const existingAdmin = await db.teacher.findFirst({
+          where: {
+            OR: [
+              { phone: "admin" },
+              { name: { contains: "Quản Trị" } },
+            ],
+          },
         });
 
-        if (superAdminCount === 0) {
+        if (existingAdmin) {
+          superAdmin = await db.teacher.update({
+            where: { id: existingAdmin.id },
+            data: { role: "SUPER_ADMIN", phone: "admin" },
+          });
+        } else {
           superAdmin = await db.teacher.create({
             data: {
               name: "Quản Trị Hệ Thống (Super Admin)",

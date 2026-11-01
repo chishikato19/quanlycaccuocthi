@@ -98,11 +98,28 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Thông tin cập nhật không hợp lệ" }, { status: 400 });
     }
 
+    // Lấy thông tin tài khoản hiện tại để bảo toàn vai trò
+    const currentTeacher = await db.teacher.findUnique({ where: { id } });
+
+    let finalRole = role;
+    if (
+      currentTeacher?.role === "SUPER_ADMIN" ||
+      currentTeacher?.phone === "admin" ||
+      phone === "admin" ||
+      role === "SUPER_ADMIN"
+    ) {
+      finalRole = "SUPER_ADMIN";
+    } else if (role === "ADMIN") {
+      finalRole = "ADMIN";
+    } else {
+      finalRole = "USER";
+    }
+
     const updateData: Record<string, unknown> = {
       name: name.trim(),
       department: department.trim(),
       phone: phone ? phone.trim() : null,
-      role: role === "ADMIN" ? "ADMIN" : "USER",
+      role: finalRole,
     };
 
     if (driveFolderId !== undefined) {

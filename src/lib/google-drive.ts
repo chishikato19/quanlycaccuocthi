@@ -53,8 +53,15 @@ export async function ensureCompetitionSubfolder(params: {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.folderId) {
+        const text = await res.text();
+        let data = null;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          // ignore html
+        }
+
+        if (data && data.success && data.folderId) {
           return {
             folderId: data.folderId,
             folderUrl: data.folderUrl || `https://drive.google.com/drive/folders/${data.folderId}`,
@@ -136,11 +143,11 @@ export async function ensureCompetitionSubfolder(params: {
     }
   }
 
-  // 3. Chế độ mô phỏng khi chưa kết nối API
-  const mockFolderId = resolvedParentId ? `${resolvedParentId}` : `folder-mock-${Date.now()}`;
+  // 3. Nếu chưa kết nối API, trả về thư mục chung nếu có, không sinh ID ảo
+  const fallbackFolderId = resolvedParentId || "";
   return {
-    folderId: mockFolderId,
-    folderUrl: `https://drive.google.com/drive/folders/${mockFolderId}`,
+    folderId: fallbackFolderId,
+    folderUrl: fallbackFolderId ? `https://drive.google.com/drive/folders/${fallbackFolderId}` : "",
     isMock: true,
   };
 }
@@ -179,8 +186,17 @@ export async function uploadToGoogleDrive(params: {
       });
 
       if (res.ok) {
-        const result = await res.json();
-        if (result.success && result.fileId) {
+        const text = await res.text();
+        let result = null;
+        try {
+          result = JSON.parse(text);
+        } catch {
+          if (text.includes("Bạn cần có quyền truy cập") || text.includes("accounts.google.com")) {
+            console.warn("[GoogleDriveService] Webhook bị chặn do chưa mở quyền 'Bất kỳ ai (Anyone)'!");
+          }
+        }
+
+        if (result && result.success && result.fileId) {
           return {
             fileId: result.fileId,
             driveUrl: result.fileUrl || `https://drive.google.com/file/d/${result.fileId}/view`,
@@ -273,13 +289,12 @@ export async function uploadToGoogleDrive(params: {
     }
   }
 
-  // 3. Chế độ dự phòng: Sinh link mở thư mục Google Drive cha đã cấu hình
-  const mockFileId = `drive-mock-${Date.now()}`;
+  // 3. Chế độ dự phòng: KHÔNG sinh link file ảo (để tránh lỗi 404 khi người dùng bấm vào)
   return {
-    fileId: mockFileId,
-    driveUrl: targetFolderUrl || (resolvedParentId ? `https://drive.google.com/drive/folders/${resolvedParentId}` : `https://drive.google.com/file/d/${mockFileId}/view?usp=sharing`),
-    folderId: targetFolderId,
-    folderUrl: targetFolderUrl,
+    fileId: "",
+    driveUrl: "",
+    folderId: targetFolderId || resolvedParentId || undefined,
+    folderUrl: targetFolderUrl || (resolvedParentId ? `https://drive.google.com/drive/folders/${resolvedParentId}` : undefined),
     isMock: true,
   };
 }

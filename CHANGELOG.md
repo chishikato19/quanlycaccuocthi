@@ -6,6 +6,23 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.5.1] - 2026-11-01
+### Khắc phục Lỗi Quyền Hạn Super Admin, Dọn Dẹp Link 404 & Công Cụ Test Webhook Drive
+- **Khắc phục lỗi mất quyền Super Admin khi lưu Drive ([`/api/teachers`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/teachers/route.ts)):**
+  - Sửa lỗi logic `role === 'ADMIN' ? 'ADMIN' : 'USER'` làm tài khoản `SUPER_ADMIN` bị giáng cấp thành `USER` khi bấm lưu cấu hình Drive.
+  - Tự động bảo toàn vai trò `SUPER_ADMIN` vĩnh viễn cho tài khoản Quản trị hệ thống.
+  - Tối ưu hóa API đăng nhập ([`/api/auth/login`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/auth/login/route.ts)), tự động khôi phục quyền `SUPER_ADMIN` và ngăn chặn tạo tài khoản trùng lặp.
+- **Hợp nhất dữ liệu Super Admin duy nhất ([`scripts/cleanup-admin.js`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/scripts/cleanup-admin.js)):**
+  - Tự động hợp nhất các bản ghi admin trùng lặp, bảo toàn ID tài khoản chứa cấu hình Google Drive & Webhook thực tế của nhà trường.
+  - Tự động quét và xóa sạch các đường link ảo `drive-mock` trong cơ sở dữ liệu để loại bỏ hoàn toàn lỗi 404 khi mở file trên Google Drive.
+- **Tích hợp Công cụ Kiểm Tra Kết Nối Webhook (`/api/drive/test-webhook`):**
+  - Thêm nút **`[Kiểm tra kết nối 🧪]`** ngay cạnh ô nhập Webhook trong cửa sổ `[📁 Drive Trường]`.
+  - Tự động phát hiện lỗi bảo mật Google: Cảnh báo ngay nếu người dùng chưa mở quyền **"Ai có quyền truy cập: Bất kỳ ai (Anyone)"** trên Google Apps Script.
+- **Loại bỏ Link 404 trên giao diện Báo cáo ([`ReportDetailView.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/reports/components/ReportDetailView.tsx)):**
+  - Ẩn biểu tượng link Google Drive nếu file chưa được đồng bộ thực tế lên Google Drive, tránh việc người dùng bấm vào gặp trang 404 của Google.
+
+---
+
 ## [1.5.0] - 2026-11-01
 ### Nâng cấp Quản lý Google Drive Nhà Trường & Tự Động Chia Thư Mục Cuộc Thi
 - **Chuẩn hóa Thư mục Google Drive Nhà Trường (School Master Drive Folder):**

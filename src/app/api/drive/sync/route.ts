@@ -69,7 +69,7 @@ export async function POST(req: Request) {
           webhookUrl: schoolDrive.webhookUrl,
         });
 
-        if (!uploadRes.isMock || uploadRes.driveUrl) {
+        if (!uploadRes.isMock && uploadRes.fileId && uploadRes.driveUrl) {
           await db.submission.update({
             where: { id: sub.id },
             data: {
@@ -89,6 +89,10 @@ export async function POST(req: Request) {
           }
 
           successCount++;
+        } else if (uploadRes.isMock) {
+          errors.push(
+            `Chưa thể tải bài nộp ${sub.id}: Webhook Google Apps Script chưa nhận được quyền ghi hoặc chưa kết nối.`
+          );
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
