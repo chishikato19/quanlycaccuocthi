@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Teacher {
+  id          String   @id @default(cuid())
+  name        String
+  department  String   // Tổ chuyên môn: Toán, Ngữ Văn, Ngoại Ngữ, KHTN, KHXH, Tiểu học, v.v.
+  phone       String?
+  role        String   @default("USER") // SUPER_ADMIN | ADMIN | USER
+  pinCode     String   @default("1234") // Mã PIN đăng nhập
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignedCompetitions CompetitionAssignee[]
+  submissions          Submission[]
+  createdCompetitions  Competition[]
+}
+
+model Competition {
+  id                  String   @id @default(cuid())
+  title               String
+  description         String?
+  link                String?  // Đường dẫn tham gia cuộc thi nếu có
+  deadline            DateTime
+  status              String   @default("ACTIVE") // ACTIVE | CLOSED_EARLY
+  allowLateSubmission Boolean  @default(true)     // Vẫn cho nộp khi quá hạn (có gắn cờ LATE)
+  allowViewProgress   Boolean  @default(true)     // Cho phép người dùng xem tiến độ bao nhiêu người đã nộp
+  driveFolderId       String?  // Thư mục lưu ảnh trên Drive nếu có
+
+  creatorId           String
+  creator             Teacher  @relation(fields: [creatorId], references: [id])
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  assignees           CompetitionAssignee[]
+  submissions         Submission[]
+}
+
+model CompetitionAssignee {
+  id            String      @id @default(cuid())
+  competitionId String
+  teacherId     String
+  createdAt     DateTime    @default(now())
+
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  teacher       Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([competitionId, teacherId])
+}
+
+model Submission {
+  id            String      @id @default(cuid())
+  competitionId String
+  teacherId     String
+  status        String      @default("ON_TIME") // ON_TIME | LATE
+  driveFileId   String?     // File ID trên Google Drive
+  driveFileUrl  String?     // Link xem file trên Google Drive
+  localImageUrl String?     // Lưu ảnh dưới dạng Data URL hoặc đường dẫn nội bộ phục vụ xem nhanh
+  imageFileName String?     // Tên file gốc
+  note          String?     // Ghi chú thêm (điểm số, lời nhắn)
+  submittedAt   DateTime    @default(now())
+  reviewStatus  String      @default("PENDING") // PENDING | APPROVED | REJECTED
+
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  teacher       Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([competitionId, teacherId])
+}

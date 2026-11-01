@@ -1,0 +1,425 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { CompetitionDto } from "@/types";
+import { formatDateTime } from "@/lib/utils";
+import {
+  ArrowLeft,
+  FileSpreadsheet,
+  Image as ImageIcon,
+  Copy,
+  ExternalLink,
+  Eye,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Check,
+  Search,
+  Filter
+} from "lucide-react";
+import { ExportModal } from "./ExportModal";
+import { EvidenceLightbox, LightboxItem } from "@/features/submissions/components/EvidenceLightbox";
+import { ReportRowData } from "../services/exportExcel";
+
+interface ReportDetailViewProps {
+  competitionId: string;
+  onBack: () => void;
+}
+
+export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
+  competitionId,
+  onBack,
+}) => {
+  const [reportData, setReportData] = useState<{
+    competition: CompetitionDto;
+    stats: {
+      totalAssignees: number;
+      totalSubmitted: number;
+      totalOnTime: number;
+      totalLate: number;
+      totalNotSubmitted: number;
+      completionRate: number;
+    };
+    rows: ReportRowData[];
+  } | null>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [copiedZaloReminder, setCopiedZaloReminder] = useState(false);
+
+  // Bộ lọc bảng
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "SUBMITTED" | "NOT_SUBMITTED">("ALL");
+
+  // Lightbox
+  const [lightboxItems, setLightboxItems] = useState<LightboxItem[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    loadReport();
+  }, [competitionId]);
+
+  const loadReport = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/reports/${competitionId}`);
+      const json = await res.json();
+      if (json.success) {
+        setReportData(json.data);
+
+        // Chuẩn bị danh sách ảnh cho Lightbox
+        const validLightboxItems: LightboxItem[] = [];
+        for (const r of json.data.rows) {
+          if (r.isSubmitted && (r.localImageUrl || r.driveFileUrl)) {
+            validLightboxItems.push({
+              id: r.teacherId,
+              teacherName: r.teacherName,
+              department: r.department,
+              status: r.submissionStatus === "NỘP MUỘN" ? "LATE" : "ON_TIME",
+              submittedAt: r.submitTime || new Date().toISOString(),
+              imageUrl: r.localImageUrl || r.driveFileUrl || "",
+              driveFileUrl: r.driveFileUrl,
+              note: r.note,
+            });
+          }
+        }
+        setLightboxItems(validLightboxItems);
+      } else {
+        setError(json.error || "Không thể tải báo cáo");
+      }
+    } catch {
+      setError("Lỗi kết nối máy chủ");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOpenLightbox = (teacherId: string) => {
+    const idx = lightboxItems.findIndex(item => item.id === teacherId);
+    if (idx !== -1) {
+      setLightboxIndex(idx);
+      setIsLightboxOpen(true);
+    }
+  };
+
+  // Sao chép nhanh danh sách giáo viên chưa nộp để gửi vào nhóm Zalo
+  const handleCopyZaloReminder = () => {
+    if (!reportData) return;
+    const notSubmittedRows = reportData.rows.filter(r => !r.isSubmitted);
+    if (notSubmittedRows.length === 0) {
+      alert("Tất cả giáo viên đã hoàn thành nộp minh chứng!");
+      return;
+    }
+
+    let text = `📢 [ĐÔN ĐỐC] CUỘC THI: ${reportData.competition.title}\n`;
+    text += `⏰ Hạn chót: ${formatDateTime(reportData.competition.deadline)}\n`;
+    text += `Danh sách còn (${notSubmittedRows.length} đồng chí) chưa nộp minh chứng:\n`;
+
+    notSubmittedRows.forEach((r, idx) => {
+      text += `${idx + 1}. ${r.teacherName} (${r.department})\n`;
+    });
+
+    text += `Kính đề nghị các đồng chí khẩn trương hoàn thành báo cáo. Trân trọng!`;
+
+    navigator.clipboard.writeText(text);
+    setCopiedZaloReminder(true);
+    setTimeout(() => setCopiedZaloReminder(false), 2500);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-2xl p-12 text-center text-slate-500 border border-slate-200">
+        Đang tổng hợp báo cáo chi tiết...
+      </div>
+    );
+  }
+
+  if (error || !reportData) {
+    return (
+      <div className="bg-white rounded-2xl p-8 text-center text-red-600 border border-red-200">
+        <p>{error || "Không tìm thấy dữ liệu báo cáo"}</p>
+        <button
+          onClick={onBack}
+          className="mt-4 px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold"
+        >
+          Quay lại danh sách
+        </button>
+      </div>
+    );
+  }
+
+  const { competition, stats, rows } = reportData;
+
+  const filteredRows = rows.filter(r => {
+    if (statusFilter === "SUBMITTED" && !r.isSubmitted) return false;
+    if (statusFilter === "NOT_SUBMITTED" && r.isSubmitted) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (
+        r.teacherName.toLowerCase().includes(q) ||
+        r.department.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  return (
+    <div className="space-y-5">
+      {/* Top Header & Navigation */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-colors shrink-0 mt-0.5"
+            title="Quay lại danh sách"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800">
+                Báo cáo tiến độ
+              </span>
+              <span className="text-xs text-slate-400">
+                Hạn chót: {formatDateTime(competition.deadline)}
+              </span>
+            </div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 mt-1">
+              {competition.title}
+            </h2>
+          </div>
+        </div>
+
+        {/* Nút hành động Xuất Báo Cáo */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleCopyZaloReminder}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-xs transition-all"
+            title="Sao chép văn bản danh sách chưa nộp để gửi vào nhóm Zalo"
+          >
+            {copiedZaloReminder ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span className="text-emerald-400">Đã sao chép DS Zalo!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" />
+                <span>Copy DS Chưa Nộp (Zalo)</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsExportModalOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Xuất Báo Cáo (Excel / Ảnh)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Thẻ thống kê tổng quan (Dashboard Metric Cards) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="text-[11px] font-medium text-slate-500">Được phân công</div>
+          <div className="text-xl font-bold text-slate-800 mt-1">{stats.totalAssignees}</div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-2xl border border-emerald-100 shadow-xs bg-emerald-50/20">
+          <div className="text-[11px] font-medium text-emerald-600">Đã tham gia</div>
+          <div className="text-xl font-bold text-emerald-700 mt-1">{stats.totalSubmitted}</div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-2xl border border-sky-100 shadow-xs bg-sky-50/20">
+          <div className="text-[11px] font-medium text-sky-600">Đúng hạn</div>
+          <div className="text-xl font-bold text-sky-700 mt-1">{stats.totalOnTime}</div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-2xl border border-amber-100 shadow-xs bg-amber-50/20">
+          <div className="text-[11px] font-medium text-amber-600">Nộp muộn</div>
+          <div className="text-xl font-bold text-amber-700 mt-1">{stats.totalLate}</div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-2xl border border-rose-100 shadow-xs bg-rose-50/20">
+          <div className="text-[11px] font-medium text-rose-600">Chưa nộp</div>
+          <div className="text-xl font-bold text-rose-700 mt-1">{stats.totalNotSubmitted}</div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="text-[11px] font-medium text-slate-500">Tỷ lệ hoàn thành</div>
+          <div className="text-xl font-bold text-sky-600 mt-1">{stats.completionRate}%</div>
+        </div>
+      </div>
+
+      {/* Bảng chi tiết danh sách từng giáo viên */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        {/* Thanh lọc trên bảng */}
+        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("ALL")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                statusFilter === "ALL"
+                  ? "bg-slate-800 text-white"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Tất cả ({rows.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("SUBMITTED")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                statusFilter === "SUBMITTED"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Đã tham gia ({stats.totalSubmitted})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("NOT_SUBMITTED")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                statusFilter === "NOT_SUBMITTED"
+                  ? "bg-rose-600 text-white"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Chưa nộp ({stats.totalNotSubmitted})
+            </button>
+          </div>
+
+          <div className="relative min-w-[220px]">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Tìm theo tên giáo viên..."
+              className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+            />
+          </div>
+        </div>
+
+        {/* Bảng dữ liệu */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
+              <tr>
+                <th className="py-3 px-3.5 w-12 text-center font-bold">STT</th>
+                <th className="py-3 px-3.5 font-bold">Họ và Tên</th>
+                <th className="py-3 px-3.5 font-bold">Tổ Chuyên Môn</th>
+                <th className="py-3 px-3.5 font-bold text-center">Trạng Thái</th>
+                <th className="py-3 px-3.5 font-bold">Thời Gian Nộp</th>
+                <th className="py-3 px-3.5 font-bold">Minh Chứng</th>
+                <th className="py-3 px-3.5 font-bold">Ghi Chú</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                    Không có giáo viên nào trong bộ lọc này
+                  </td>
+                </tr>
+              ) : (
+                filteredRows.map((r, idx) => (
+                  <tr key={r.teacherId} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-2.5 px-3.5 text-center text-slate-400 font-medium">
+                      {idx + 1}
+                    </td>
+                    <td className="py-2.5 px-3.5 font-semibold text-slate-800">
+                      {r.teacherName}
+                    </td>
+                    <td className="py-2.5 px-3.5 text-slate-600">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-medium">
+                        {r.department}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3.5 text-center">
+                      <span
+                        className={`inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                          r.submissionStatus === "ĐÚNG HẠN"
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            : r.submissionStatus === "NỘP MUỘN"
+                            ? "bg-amber-100 text-amber-800 border border-amber-200"
+                            : "bg-rose-100 text-rose-800 border border-rose-200"
+                        }`}
+                      >
+                        {r.submissionStatus}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3.5 text-slate-500 font-mono text-[11px]">
+                      {r.submitTime ? formatDateTime(r.submitTime) : "---"}
+                    </td>
+                    <td className="py-2.5 px-3.5">
+                      {r.isSubmitted ? (
+                        <div className="flex items-center gap-2">
+                          {/* Nút xem nhanh ảnh qua Lightbox */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLightbox(r.teacherId)}
+                            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors"
+                            title="Xem nhanh ảnh minh chứng"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Xem ảnh</span>
+                          </button>
+
+                          {/* Nút mở link Google Drive */}
+                          {r.driveFileUrl && (
+                            <a
+                              href={r.driveFileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1 hover:bg-slate-100 text-slate-400 hover:text-sky-600 rounded-md transition-colors"
+                              title="Mở trên Google Drive"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-300 text-[11px]">Chưa nộp</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3.5 text-slate-500 text-[11px] italic">
+                      {r.note || "---"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Lightbox Modal Xem Ảnh Nhanh */}
+      <EvidenceLightbox
+        items={lightboxItems}
+        currentIndex={lightboxIndex}
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        onNavigate={setLightboxIndex}
+      />
+
+      {/* Modal Xuất Báo Cáo */}
+      <ExportModal
+        competitionTitle={competition.title}
+        rows={rows}
+        stats={stats}
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+      />
+    </div>
+  );
+};
