@@ -1,5 +1,18 @@
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+
+const dbUrl =
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
+  process.env.POSTGRES_URL ||
+  process.env.DATABASE_URL_UNPOOLED;
+
+if (dbUrl && !process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = dbUrl;
+}
+
+const prisma = new PrismaClient({
+  datasources: dbUrl ? { db: { url: dbUrl } } : undefined,
+});
 
 async function main() {
   console.log('[Auto-Seed] Kiểm tra cơ sở dữ liệu...');

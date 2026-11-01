@@ -204,7 +204,16 @@ export const mockCompetitions: MockCompetition[] = [
   },
 ];
 
+export function getDatabaseUrl(): string | undefined {
+  return (
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.DATABASE_URL_UNPOOLED
+  );
+}
+
 export function isDatabaseConfigured(): boolean {
-  const url = process.env.DATABASE_URL;
+  const url = getDatabaseUrl();
   return Boolean(url && (url.startsWith("postgresql://") || url.startsWith("postgres://")));
 }

@@ -6,6 +6,15 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.3.3] - 2026-11-01
+### Tương thích linh hoạt biến môi trường Neon/Vercel (Enhanced Database Auto-Detection)
+- **Tự động nhận diện đa biến môi trường (`DATABASE_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL`, `DATABASE_URL_UNPOOLED`):**
+  - Khắc phục trường hợp Vercel Marketplace inject các tên biến khác nhau như `POSTGRES_PRISMA_URL` hoặc `POSTGRES_URL` thay vì `DATABASE_URL`.
+  - Tự động map sang `DATABASE_URL` trong cả runtime và build-time (`scripts/vercel-build.js`, `prisma/seed-if-empty.js`, `src/lib/db.ts`).
+  - Git push phiên bản mới giúp tự động kích hoạt build lại trên Vercel mà người dùng không cần bấm redeploy thủ công.
+
+---
+
 ## [1.3.2] - 2026-11-01
 ### Thêm mới & Cứu trợ khẩn cấp (Emergency Fallback & Zero-Config Live)
 - **Tầng dữ liệu dự phòng Zero-Downtime ([`src/lib/mock-data.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/lib/mock-data.ts)):**

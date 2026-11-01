@@ -2,7 +2,17 @@ const { execSync } = require('child_process');
 
 console.log('--- [BUILD SCRIPT] Bắt đầu quá trình build ---');
 
-const dbUrl = process.env.DATABASE_URL || '';
+const dbUrl =
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
+  process.env.POSTGRES_URL ||
+  process.env.DATABASE_URL_UNPOOLED ||
+  '';
+
+if (dbUrl && !process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = dbUrl;
+  console.log('🔗 Đã tự động ánh xạ DATABASE_URL từ biến môi trường Vercel/Neon!');
+}
 
 // 1. Luôn generate Prisma Client
 try {
