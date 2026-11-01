@@ -64,7 +64,11 @@ export async function PUT(
     if (allowLateSubmission !== undefined) updateData.allowLateSubmission = Boolean(allowLateSubmission);
     if (allowViewProgress !== undefined) updateData.allowViewProgress = Boolean(allowViewProgress);
     if (driveFolderId !== undefined) {
-      updateData.driveFolderId = extractDriveFolderId(driveFolderId);
+      const cleanId = extractDriveFolderId(driveFolderId);
+      updateData.driveFolderId = cleanId;
+      if (cleanId) {
+        updateData.driveFolderUrl = `https://drive.google.com/drive/folders/${cleanId}`;
+      }
     }
 
     // Cập nhật người thực hiện nếu có truyền assigneeIds

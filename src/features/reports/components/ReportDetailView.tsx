@@ -15,7 +15,8 @@ import {
   Clock,
   Check,
   Search,
-  Filter
+  Filter,
+  FolderOpen
 } from "lucide-react";
 import { ExportModal } from "./ExportModal";
 import { EvidenceLightbox, LightboxItem } from "@/features/submissions/components/EvidenceLightbox";
@@ -69,7 +70,6 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
       if (json.success) {
         setReportData(json.data);
 
-        // Chuẩn bị danh sách ảnh cho Lightbox
         const validLightboxItems: LightboxItem[] = [];
         for (const r of json.data.rows) {
           if (r.isSubmitted && (r.localImageUrl || r.driveFileUrl)) {
@@ -152,6 +152,8 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
 
   const { competition, stats, rows } = reportData;
 
+  const folderUrl = competition.driveFolderUrl || (competition.driveFolderId ? `https://drive.google.com/drive/folders/${competition.driveFolderId}` : null);
+
   const filteredRows = rows.filter(r => {
     if (statusFilter === "SUBMITTED" && !r.isSubmitted) return false;
     if (statusFilter === "NOT_SUBMITTED" && r.isSubmitted) return false;
@@ -166,9 +168,9 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       {/* Top Header & Navigation */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <button
             type="button"
@@ -179,8 +181,8 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800">
                 Báo cáo tiến độ
               </span>
               <span className="text-xs text-slate-400">
@@ -193,8 +195,21 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
           </div>
         </div>
 
-        {/* Nút hành động Xuất Báo Cáo */}
+        {/* Nút hành động Xuất Báo Cáo & Mở Folder Google Drive */}
         <div className="flex flex-wrap items-center gap-2">
+          {folderUrl && (
+            <a
+              href={folderUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-semibold rounded-xl shadow-xs transition-all"
+              title="Mở thư mục con của cuộc thi này trên Google Drive để xem trọn bộ file ảnh gốc"
+            >
+              <FolderOpen className="w-4 h-4 text-purple-600" />
+              <span>Mở Thư Mục Drive</span>
+            </a>
+          )}
+
           <button
             type="button"
             onClick={handleCopyZaloReminder}
@@ -209,7 +224,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
             ) : (
               <>
                 <Copy className="w-4 h-4" />
-                <span>Copy DS Chưa Nộp (Zalo)</span>
+                <span>Copy DS Chưa Nộp</span>
               </>
             )}
           </button>
@@ -225,8 +240,8 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
         </div>
       </div>
 
-      {/* Thẻ thống kê tổng quan (Dashboard Metric Cards) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* Thẻ thống kê tổng quan */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
           <div className="text-[11px] font-medium text-slate-500">Được phân công</div>
           <div className="text-xl font-bold text-slate-800 mt-1">{stats.totalAssignees}</div>
@@ -261,8 +276,8 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
       {/* Bảng chi tiết danh sách từng giáo viên */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {/* Thanh lọc trên bảng */}
-        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="p-3 sm:p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 bg-slate-50/50">
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
               onClick={() => setStatusFilter("ALL")}
@@ -298,7 +313,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
             </button>
           </div>
 
-          <div className="relative min-w-[220px]">
+          <div className="relative min-w-[200px] flex-1 sm:flex-none">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
             <input
               type="text"
@@ -312,7 +327,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
 
         {/* Bảng dữ liệu */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[650px]">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
               <tr>
                 <th className="py-3 px-3.5 w-12 text-center font-bold">STT</th>
@@ -364,7 +379,6 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                     <td className="py-2.5 px-3.5">
                       {r.isSubmitted ? (
                         <div className="flex items-center gap-2">
-                          {/* Nút xem nhanh ảnh qua Lightbox */}
                           <button
                             type="button"
                             onClick={() => handleOpenLightbox(r.teacherId)}
@@ -375,14 +389,13 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                             <span>Xem ảnh</span>
                           </button>
 
-                          {/* Nút mở link Google Drive */}
                           {r.driveFileUrl && (
                             <a
                               href={r.driveFileUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="p-1 hover:bg-slate-100 text-slate-400 hover:text-sky-600 rounded-md transition-colors"
-                              title="Mở trên Google Drive"
+                              title="Mở file trên Google Drive"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                             </a>

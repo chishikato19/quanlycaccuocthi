@@ -55,34 +55,33 @@ export async function POST(req: Request) {
 
     const submissionStatus = isPastDeadline ? "LATE" : "ON_TIME";
 
-    // XÁC ĐỊNH THƯ MỤC GOOGLE DRIVE:
-    // Ưu tiên 1: Thư mục Drive riêng của cuộc thi này.
-    // Ưu tiên 2: Thư mục Drive cá nhân của Admin tạo cuộc thi.
-    // Ưu tiên 3: Mặc định fallback về Drive chung của Super Admin.
-    const customDriveFolderId = competition.driveFolderId || competition.creator.driveFolderId || null;
-
     let driveFileId = null;
     let driveFileUrl = null;
     let localImageUrl = base64Image || null;
 
     if (base64Image) {
+      // Đẩy ảnh thẳng vào thư mục con của cuộc thi này
       const uploadRes = await uploadToGoogleDrive({
         base64Data: base64Image,
         fileName: fileName || "minh_chung.jpg",
         mimeType: mimeType || "image/jpeg",
         competitionTitle: competition.title,
         teacherName: teacher.name,
-        customFolderId: customDriveFolderId,
+        competitionFolderId: competition.driveFolderId,
+        masterParentFolderId: competition.creator.driveFolderId,
       });
 
       driveFileId = uploadRes.fileId;
       driveFileUrl = uploadRes.driveUrl;
 
-      // Nếu cuộc thi chưa có driveFolderId nhưng đã tạo folder trên Drive, lưu lại vào competition
+      // Nếu cuộc thi trước đó chưa lưu driveFolderId, cập nhật ngay
       if (!competition.driveFolderId && uploadRes.folderId) {
         await db.competition.update({
           where: { id: competition.id },
-          data: { driveFolderId: uploadRes.folderId },
+          data: {
+            driveFolderId: uploadRes.folderId,
+            driveFolderUrl: uploadRes.folderUrl || `https://drive.google.com/drive/folders/${uploadRes.folderId}`,
+          },
         }).catch(() => null);
       }
     }

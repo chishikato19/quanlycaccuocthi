@@ -33,7 +33,8 @@ model Competition {
   status              String   @default("ACTIVE") // ACTIVE | CLOSED_EARLY
   allowLateSubmission Boolean  @default(true)     // Vẫn cho nộp khi quá hạn (có gắn cờ LATE)
   allowViewProgress   Boolean  @default(true)     // Cho phép người dùng xem tiến độ bao nhiêu người đã nộp
-  driveFolderId       String?  // Thư mục Drive riêng của cuộc thi này (nếu admin chỉ định)
+  driveFolderId       String?  // ID thư mục con của cuộc thi này trong thư mục chung
+  driveFolderUrl      String?  // Link trực tiếp mở thư mục cuộc thi trên Google Drive
 
   creatorId           String
   creator             Teacher  @relation(fields: [creatorId], references: [id])

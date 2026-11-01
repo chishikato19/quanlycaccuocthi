@@ -13,7 +13,8 @@ import {
   Edit,
   FastForward,
   StopCircle,
-  Trash2
+  Trash2,
+  FolderOpen
 } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 
@@ -49,6 +50,8 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
   const userSub = competition.userSubmission;
   const hasUserSubmitted = !!userSub;
 
+  const folderUrl = competition.driveFolderUrl || (competition.driveFolderId ? `https://drive.google.com/drive/folders/${competition.driveFolderId}` : null);
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all overflow-hidden flex flex-col">
       {/* Top Banner & Status */}
@@ -80,6 +83,17 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
           {/* Menu thao tác Admin */}
           {isAdmin && (
             <div className="flex items-center gap-0.5">
+              {folderUrl && (
+                <a
+                  href={folderUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 hover:bg-purple-50 text-purple-600 rounded-lg transition-colors"
+                  title="Mở thư mục cuộc thi này trên Google Drive"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                </a>
+              )}
               <button
                 type="button"
                 onClick={() => onEdit(competition)}
@@ -203,7 +217,7 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
         )}
       </div>
 
-      {/* Hành động dưới cùng - Tối ưu nút bấm cảm ứng ngón tay */}
+      {/* Hành động dưới cùng */}
       <div className="p-3 bg-white border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         {/* Nút xem báo cáo (Dành cho Admin) */}
         {isAdmin && (

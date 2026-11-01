@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { extractDriveFolderId } from "@/lib/google-drive";
+import { ensureCompetitionSubfolder, extractDriveFolderId } from "@/lib/google-drive";
 
 export async function GET(req: Request) {
   try {
@@ -45,6 +45,9 @@ export async function GET(req: Request) {
         ? comp.submissions.find(s => s.teacherId === teacherId)
         : null;
 
+      // Link mở thư mục cuộc thi trên Drive
+      const folderUrl = comp.driveFolderUrl || (comp.driveFolderId ? `https://drive.google.com/drive/folders/${comp.driveFolderId}` : null);
+
       return {
         id: comp.id,
         title: comp.title,
@@ -54,7 +57,8 @@ export async function GET(req: Request) {
         status: comp.status,
         allowLateSubmission: comp.allowLateSubmission,
         allowViewProgress: comp.allowViewProgress,
-        driveFolderId: comp.driveFolderId || comp.creator.driveFolderId || null,
+        driveFolderId: comp.driveFolderId,
+        driveFolderUrl: folderUrl,
         creatorId: comp.creatorId,
         creatorName: comp.creator.name,
         createdAt: comp.createdAt.toISOString(),
@@ -105,9 +109,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Vui lòng chọn ít nhất một người thực hiện" }, { status: 400 });
     }
 
-    // Trích xuất Folder ID chuẩn nếu người dùng dán link Drive
-    const cleanFolderId = extractDriveFolderId(driveFolderId);
+    // 1. TỰ ĐỘNG TẠO THƯ MỤC CON CHO CUỘC THI NÀY TRONG THƯ MỤC CHUNG
+    const creator = await db.teacher.findUnique({
+      where: { id: creatorId },
+      select: { driveFolderId: true },
+    });
 
+    // Thư mục cha chung (Ưu tiên thư mục Admin cấu hình riêng, nếu không lấy của Super Admin)
+    const masterParentFolder = driveFolderId || creator?.driveFolderId || process.env.GOOGLE_DRIVE_FOLDER_ID;
+
+    const subfolderResult = await ensureCompetitionSubfolder({
+      competitionTitle: title,
+      parentFolderId: masterParentFolder,
+    });
+
+    // 2. Tạo bản ghi cuộc thi kèm ID và Link thư mục con trên Drive
     const competition = await db.competition.create({
       data: {
         title: title.trim(),
@@ -117,7 +133,8 @@ export async function POST(req: Request) {
         status: "ACTIVE",
         allowLateSubmission: Boolean(allowLateSubmission),
         allowViewProgress: Boolean(allowViewProgress),
-        driveFolderId: cleanFolderId,
+        driveFolderId: subfolderResult.folderId,
+        driveFolderUrl: subfolderResult.folderUrl,
         creatorId,
         assignees: {
           create: assigneeIds.map((tId: string) => ({

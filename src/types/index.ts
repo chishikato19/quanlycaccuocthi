@@ -23,6 +23,7 @@ export interface CompetitionDto {
   allowLateSubmission: boolean;
   allowViewProgress: boolean;
   driveFolderId?: string | null;
+  driveFolderUrl?: string | null;
   creatorId: string;
   creatorName?: string;
   createdAt: string;
