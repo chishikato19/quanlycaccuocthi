@@ -2,7 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import { CompetitionDto, TeacherDto } from "@/types";
-import { X, Trophy, Plus, Edit3, Calendar, Link as LinkIcon, Check, Users, AlertCircle, Clock } from "lucide-react";
+import {
+  X,
+  Trophy,
+  Calendar,
+  Link as LinkIcon,
+  Check,
+  Users,
+  AlertCircle,
+  Clock,
+  FolderSync,
+  HelpCircle
+} from "lucide-react";
 import { DepartmentSelector } from "./DepartmentSelector";
 import { useAuth } from "@/features/auth/context/AuthContext";
 
@@ -31,6 +42,11 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
   const [allowLateSubmission, setAllowLateSubmission] = useState(true);
   const [allowViewProgress, setAllowViewProgress] = useState(true);
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
+
+  // Tùy chọn lưu trữ Google Drive: "DEFAULT" (chung của Super Admin) hoặc "CUSTOM" (Drive riêng của Admin)
+  const [driveOption, setDriveOption] = useState<"DEFAULT" | "CUSTOM">("DEFAULT");
+  const [customDriveFolder, setCustomDriveFolder] = useState("");
+
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,7 +55,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
       setTitle(competition.title);
       setDescription(competition.description || "");
       setLink(competition.link || "");
-      // Chuyển deadline sang format YYYY-MM-DDTHH:mm cho datetime-local input
+
       const d = new Date(competition.deadline);
       const tzOffset = d.getTimezoneOffset() * 60000;
       const localISOTime = new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
@@ -47,30 +63,44 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
       setAllowLateSubmission(competition.allowLateSubmission);
       setAllowViewProgress(competition.allowViewProgress);
 
-      // Nếu có danh sách assignees
+      if (competition.driveFolderId) {
+        setDriveOption("CUSTOM");
+        setCustomDriveFolder(competition.driveFolderId);
+      } else {
+        setDriveOption("DEFAULT");
+        setCustomDriveFolder("");
+      }
+
       if (competition.assignees) {
         setSelectedTeacherIds(competition.assignees.map(a => a.teacherId));
       } else {
-        // Mặc định chọn tất cả
         setSelectedTeacherIds(teachers.map(t => t.id));
       }
     } else {
-      // Mặc định tạo mới
       setTitle("");
       setDescription("");
       setLink("");
-      // Hạn chót mặc định 7 ngày sau vào 23:59
+
       const defaultDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       defaultDate.setHours(23, 59, 0, 0);
       const tzOffset = defaultDate.getTimezoneOffset() * 60000;
       setDeadline(new Date(defaultDate.getTime() - tzOffset).toISOString().slice(0, 16));
       setAllowLateSubmission(true);
       setAllowViewProgress(true);
-      // Mặc định chọn tất cả giáo viên trong trường
+
+      // Nếu Admin đã có sẵn Drive cá nhân trong hồ sơ
+      if (currentUser?.driveFolderId) {
+        setDriveOption("CUSTOM");
+        setCustomDriveFolder(currentUser.driveFolderId);
+      } else {
+        setDriveOption("DEFAULT");
+        setCustomDriveFolder("");
+      }
+
       setSelectedTeacherIds(teachers.map(t => t.id));
     }
     setError("");
-  }, [competition, teachers, isOpen]);
+  }, [competition, teachers, isOpen, currentUser]);
 
   if (!isOpen || !currentUser) return null;
 
@@ -98,6 +128,8 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
         deadline: new Date(deadline).toISOString(),
         allowLateSubmission,
         allowViewProgress,
+        // Nếu chọn CUSTOM thì gửi ID thư mục, nếu chọn DEFAULT thì để null để fallback về Drive chung của Super Admin
+        driveFolderId: driveOption === "CUSTOM" && customDriveFolder.trim() ? customDriveFolder.trim() : null,
         creatorId: currentUser.id,
         assigneeIds: selectedTeacherIds,
       };
@@ -123,28 +155,28 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-100 max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-sm overflow-y-auto">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-100 my-auto flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-sky-100 text-sky-700 rounded-xl">
               <Trophy className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-sm">
-                {isEditing ? "Chỉnh Sửa Cuộc Thi / Công Việc" : "Tạo Cuộc Thi / Giao Việc Mới"}
+              <h3 className="font-bold text-slate-800 text-sm sm:text-base">
+                {isEditing ? "Chỉnh Sửa Cuộc Thi / Công Việc" : "Tạo Cuộc Thi & Giao Việc"}
               </h3>
-              <p className="text-xs text-slate-500">Thiết lập thời hạn, hướng dẫn và phân công người thực hiện</p>
+              <p className="text-xs text-slate-500">Thiết lập thời hạn, nơi lưu Drive và chọn người thực hiện</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-lg text-slate-400">
-            <X className="w-4 h-4" />
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto space-y-4">
           {error && (
             <div className="p-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -162,7 +194,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="Ví dụ: Cuộc thi Tìm hiểu An toàn Giao thông 2026..."
-              className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
+              className="w-full px-3.5 py-2 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
               required
             />
           </div>
@@ -198,7 +230,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
             </div>
           </div>
 
-          {/* Mô tả & Yêu cầu minh chứng */}
+          {/* Mô tả & Hướng dẫn */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Mô tả & Hướng dẫn minh chứng
@@ -210,6 +242,81 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
               placeholder="Yêu cầu giáo viên chụp màn hình kết quả hoặc giấy chứng nhận hoàn thành..."
               className="w-full px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
+          </div>
+
+          {/* CẤU HÌNH NƠI LƯU GOOGLE DRIVE: CHUNG CỦA SUPER ADMIN HOẶC RIÊNG CỦA ADMIN */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+            <div className="flex items-center gap-2">
+              <FolderSync className="w-4 h-4 text-sky-600" />
+              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Nơi lưu trữ ảnh minh chứng (Google Drive)
+              </label>
+            </div>
+
+            <div className="space-y-2">
+              {/* Lựa chọn 1: Lưu trên Drive chung của Super Admin */}
+              <label
+                onClick={() => setDriveOption("DEFAULT")}
+                className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                  driveOption === "DEFAULT"
+                    ? "bg-sky-50 border-sky-400 text-sky-900 font-semibold"
+                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="driveOption"
+                  checked={driveOption === "DEFAULT"}
+                  onChange={() => setDriveOption("DEFAULT")}
+                  className="mt-0.5 text-sky-600 focus:ring-sky-500"
+                />
+                <div>
+                  <div className="text-xs">Lưu trên Google Drive chung của Nhà Trường (Super Admin)</div>
+                  <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                    Mặc định: Toàn bộ ảnh sẽ tự động gom về kho dữ liệu tập trung của trường.
+                  </div>
+                </div>
+              </label>
+
+              {/* Lựa chọn 2: Lưu trên Drive riêng của Admin */}
+              <label
+                onClick={() => setDriveOption("CUSTOM")}
+                className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                  driveOption === "CUSTOM"
+                    ? "bg-purple-50 border-purple-400 text-purple-900 font-semibold"
+                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="driveOption"
+                  checked={driveOption === "CUSTOM"}
+                  onChange={() => setDriveOption("CUSTOM")}
+                  className="mt-0.5 text-purple-600 focus:ring-purple-500"
+                />
+                <div className="flex-1">
+                  <div className="text-xs">Lưu trên Google Drive riêng của tôi ({currentUser.name})</div>
+                  <div className="text-[11px] text-slate-500 font-normal mt-0.5">
+                    Ảnh minh chứng của cuộc thi này sẽ được chuyển thẳng về tài khoản Drive của bạn.
+                  </div>
+
+                  {driveOption === "CUSTOM" && (
+                    <div className="mt-2.5 space-y-1.5" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        value={customDriveFolder}
+                        onChange={e => setCustomDriveFolder(e.target.value)}
+                        placeholder="Dán đường link chia sẻ thư mục Drive hoặc ID thư mục vào đây..."
+                        className="w-full px-3 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                      />
+                      <p className="text-[10px] text-purple-700">
+                        * Mẹo: Mở Google Drive của bạn &rarr; Tạo thư mục &rarr; Bấm <b>Chia sẻ</b> &rarr; Chọn <i>"Bất kỳ ai có đường liên kết đều có thể chỉnh sửa"</i> (hoặc chia sẻ cho email Service Account) &rarr; Sao chép link dán vào ô trên.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </label>
+            </div>
           </div>
 
           {/* Các tùy chọn thiết lập */}
@@ -224,7 +331,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
               <div>
                 <span className="text-xs font-semibold text-slate-800 block">Cho phép nộp khi quá hạn</span>
                 <span className="text-[11px] text-slate-500 block leading-tight">
-                  Vẫn tiếp nhận nhưng tự động gắn cờ "Nộp muộn" để thống kê
+                  Vẫn tiếp nhận nhưng tự động gắn cờ "Nộp muộn"
                 </span>
               </div>
             </label>
@@ -239,7 +346,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
               <div>
                 <span className="text-xs font-semibold text-slate-800 block">Hiện tiến độ cho giáo viên</span>
                 <span className="text-[11px] text-slate-500 block leading-tight">
-                  Cho phép người dùng xem bao nhiêu đồng nghiệp đã nộp
+                  Cho phép người dùng xem bao nhiêu người đã nộp
                 </span>
               </div>
             </label>
@@ -262,14 +369,14 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl min-h-[42px]"
             >
               Hủy Bỏ
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-xl shadow-md shadow-sky-600/20 disabled:opacity-50"
+              className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-xl shadow-md shadow-sky-600/20 disabled:opacity-50 min-h-[42px]"
             >
               {isSubmitting ? "Đang xử lý..." : isEditing ? "Lưu Thay Đổi" : "Tạo Cuộc Thi & Giao Việc"}
             </button>

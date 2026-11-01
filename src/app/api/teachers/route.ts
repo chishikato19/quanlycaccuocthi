@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { extractDriveFolderId } from "@/lib/google-drive";
 
 // Lấy danh sách giáo viên trường
 export async function GET(req: Request) {
@@ -8,7 +9,6 @@ export async function GET(req: Request) {
     const includeSuperAdmin = searchParams.get("includeSuperAdmin") === "true";
 
     const whereClause: Record<string, unknown> = { isActive: true };
-    // Mặc định tách tài khoản Super Admin ra khỏi danh sách giáo viên trường
     if (!includeSuperAdmin) {
       whereClause.role = { not: "SUPER_ADMIN" };
     }
@@ -25,6 +25,7 @@ export async function GET(req: Request) {
         department: true,
         phone: true,
         role: true,
+        driveFolderId: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -42,7 +43,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, department, phone, role } = body;
+    const { name, department, phone, role, driveFolderId } = body;
 
     if (!name || !department) {
       return NextResponse.json({ error: "Vui lòng nhập họ tên và tổ chuyên môn" }, { status: 400 });
@@ -55,9 +56,9 @@ export async function POST(req: Request) {
         name: name.trim(),
         department: department.trim(),
         phone: phone ? phone.trim() : null,
-        // Chỉ cho phép gán ADMIN hoặc USER đối với giáo viên trường
         role: role === "ADMIN" ? "ADMIN" : "USER",
         pinCode: defaultPin,
+        driveFolderId: extractDriveFolderId(driveFolderId),
       },
       select: {
         id: true,
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
         department: true,
         phone: true,
         role: true,
+        driveFolderId: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -78,30 +80,37 @@ export async function POST(req: Request) {
   }
 }
 
-// Cập nhật thông tin giáo viên & Phân quyền Admin
+// Cập nhật thông tin giáo viên & Cấu hình Google Drive riêng của Admin
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, name, department, phone, role } = body;
+    const { id, name, department, phone, role, driveFolderId } = body;
 
     if (!id || !name || !department) {
       return NextResponse.json({ error: "Thông tin cập nhật không hợp lệ" }, { status: 400 });
     }
 
+    const updateData: Record<string, unknown> = {
+      name: name.trim(),
+      department: department.trim(),
+      phone: phone ? phone.trim() : null,
+      role: role === "ADMIN" ? "ADMIN" : "USER",
+    };
+
+    if (driveFolderId !== undefined) {
+      updateData.driveFolderId = extractDriveFolderId(driveFolderId);
+    }
+
     const updated = await db.teacher.update({
       where: { id },
-      data: {
-        name: name.trim(),
-        department: department.trim(),
-        phone: phone ? phone.trim() : null,
-        role: role === "ADMIN" ? "ADMIN" : "USER",
-      },
+      data: updateData,
       select: {
         id: true,
         name: true,
         department: true,
         phone: true,
         role: true,
+        driveFolderId: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -115,7 +124,7 @@ export async function PUT(req: Request) {
   }
 }
 
-// Xóa giáo viên (Soft delete - chuyển isActive = false)
+// Xóa giáo viên
 export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -125,7 +134,6 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Thiếu ID giáo viên" }, { status: 400 });
     }
 
-    // Không cho phép xóa tài khoản Super Admin
     const target = await db.teacher.findUnique({ where: { id } });
     if (target?.role === "SUPER_ADMIN") {
       return NextResponse.json({ error: "Không thể xóa tài khoản Tổng Quản Trị" }, { status: 403 });

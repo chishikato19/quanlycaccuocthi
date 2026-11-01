@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { extractDriveFolderId } from "@/lib/google-drive";
 
 export async function GET(
   _req: Request,
@@ -9,7 +10,7 @@ export async function GET(
     const competition = await db.competition.findUnique({
       where: { id: params.id },
       include: {
-        creator: { select: { id: true, name: true } },
+        creator: { select: { id: true, name: true, driveFolderId: true } },
         assignees: {
           include: {
             teacher: {
@@ -51,6 +52,7 @@ export async function PUT(
       deadline,
       allowLateSubmission,
       allowViewProgress,
+      driveFolderId,
       assigneeIds,
     } = body;
 
@@ -61,15 +63,16 @@ export async function PUT(
     if (deadline !== undefined) updateData.deadline = new Date(deadline);
     if (allowLateSubmission !== undefined) updateData.allowLateSubmission = Boolean(allowLateSubmission);
     if (allowViewProgress !== undefined) updateData.allowViewProgress = Boolean(allowViewProgress);
+    if (driveFolderId !== undefined) {
+      updateData.driveFolderId = extractDriveFolderId(driveFolderId);
+    }
 
     // Cập nhật người thực hiện nếu có truyền assigneeIds
     if (Array.isArray(assigneeIds)) {
-      // Xóa các assignee cũ
       await db.competitionAssignee.deleteMany({
         where: { competitionId: params.id },
       });
 
-      // Tạo các assignee mới
       await db.competitionAssignee.createMany({
         data: assigneeIds.map((tId: string) => ({
           competitionId: params.id,

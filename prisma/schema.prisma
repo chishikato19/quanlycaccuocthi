@@ -8,15 +8,16 @@ datasource db {
 }
 
 model Teacher {
-  id          String   @id @default(cuid())
-  name        String
-  department  String   // Tổ chuyên môn: Toán, Ngữ Văn, Ngoại Ngữ, KHTN, KHXH, Tiểu học, v.v.
-  phone       String?
-  role        String   @default("USER") // SUPER_ADMIN | ADMIN | USER
-  pinCode     String   @default("1234") // Mã PIN đăng nhập
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String
+  department    String   // Tổ chuyên môn: Toán, Ngữ Văn, Ngoại Ngữ, KHTN, KHXH, Tiểu học, v.v.
+  phone         String?
+  role          String   @default("USER") // SUPER_ADMIN | ADMIN | USER
+  pinCode       String   @default("1234") // Mã PIN đăng nhập
+  isActive      Boolean  @default(true)
+  driveFolderId String?  // Thư mục Google Drive cá nhân của Admin (nếu cấu hình riêng)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   assignedCompetitions CompetitionAssignee[]
   submissions          Submission[]
@@ -32,7 +33,7 @@ model Competition {
   status              String   @default("ACTIVE") // ACTIVE | CLOSED_EARLY
   allowLateSubmission Boolean  @default(true)     // Vẫn cho nộp khi quá hạn (có gắn cờ LATE)
   allowViewProgress   Boolean  @default(true)     // Cho phép người dùng xem tiến độ bao nhiêu người đã nộp
-  driveFolderId       String?  // Thư mục lưu ảnh trên Drive nếu có
+  driveFolderId       String?  // Thư mục Drive riêng của cuộc thi này (nếu admin chỉ định)
 
   creatorId           String
   creator             Teacher  @relation(fields: [creatorId], references: [id])

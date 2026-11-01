@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { extractDriveFolderId } from "@/lib/google-drive";
 
 export async function GET(req: Request) {
   try {
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       include: {
         creator: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, driveFolderId: true },
         },
         assignees: {
           include: {
@@ -53,6 +54,7 @@ export async function GET(req: Request) {
         status: comp.status,
         allowLateSubmission: comp.allowLateSubmission,
         allowViewProgress: comp.allowViewProgress,
+        driveFolderId: comp.driveFolderId || comp.creator.driveFolderId || null,
         creatorId: comp.creatorId,
         creatorName: comp.creator.name,
         createdAt: comp.createdAt.toISOString(),
@@ -69,7 +71,6 @@ export async function GET(req: Request) {
       };
     });
 
-    // Nếu là giáo viên thường (role === 'USER'), chỉ hiển thị những việc được giao cho họ
     const filtered = (role === "USER" && teacherId)
       ? result.filter(c => c.isAssigned)
       : result;
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
       deadline,
       allowLateSubmission = true,
       allowViewProgress = true,
+      driveFolderId,
       creatorId,
       assigneeIds = [],
     } = body;
@@ -103,6 +105,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Vui lòng chọn ít nhất một người thực hiện" }, { status: 400 });
     }
 
+    // Trích xuất Folder ID chuẩn nếu người dùng dán link Drive
+    const cleanFolderId = extractDriveFolderId(driveFolderId);
+
     const competition = await db.competition.create({
       data: {
         title: title.trim(),
@@ -112,6 +117,7 @@ export async function POST(req: Request) {
         status: "ACTIVE",
         allowLateSubmission: Boolean(allowLateSubmission),
         allowViewProgress: Boolean(allowViewProgress),
+        driveFolderId: cleanFolderId,
         creatorId,
         assignees: {
           create: assigneeIds.map((tId: string) => ({

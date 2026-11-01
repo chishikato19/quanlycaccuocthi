@@ -2,12 +2,41 @@ export interface DriveUploadResult {
   fileId: string;
   driveUrl: string;
   isMock: boolean;
+  folderId?: string;
 }
 
 /**
- * Service tích hợp Google Drive.
- * Khi chưa cấu hình GOOGLE_SERVICE_ACCOUNT trong .env, hệ thống sẽ tự động chuyển sang chế độ
- * lưu trữ dự phòng/mô phỏng để bạn có thể kiểm thử toàn bộ giao diện mà không bị lỗi.
+ * Tự động trích xuất Folder ID từ URL chia sẻ Google Drive hoặc ID thô
+ * Ví dụ: https://drive.google.com/drive/folders/1A2b3C4d5E6f... -> 1A2b3C4d5E6f...
+ */
+export function extractDriveFolderId(input?: string | null): string | null {
+  if (!input || !input.trim()) return null;
+  const trimmed = input.trim();
+
+  // Kiểm tra nếu là URL dạng /folders/ID
+  const match = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (match && match[1]) {
+    return match[1];
+  }
+
+  // Kiểm tra nếu là URL dạng ?id=ID
+  const idParamMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idParamMatch && idParamMatch[1]) {
+    return idParamMatch[1];
+  }
+
+  // Nếu là ID thô (chuỗi không chứa dấu gạch chéo / hoặc dấu chấm .)
+  if (!trimmed.includes("/") && !trimmed.includes(".")) {
+    return trimmed;
+  }
+
+  return null;
+}
+
+/**
+ * Service tích hợp Google Drive:
+ * - Ưu tiên 1: Lưu vào customFolderId (Thư mục riêng của Admin tạo cuộc thi).
+ * - Ưu tiên 2: Lưu vào GOOGLE_DRIVE_FOLDER_ID (Thư mục chung của Super Admin / Nhà trường).
  */
 export async function uploadToGoogleDrive(params: {
   base64Data: string;
@@ -15,14 +44,18 @@ export async function uploadToGoogleDrive(params: {
   mimeType: string;
   competitionTitle: string;
   teacherName: string;
+  customFolderId?: string | null;
 }): Promise<DriveUploadResult> {
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
+  // Xác định thư mục cha: Thư mục riêng của Admin hoặc Thư mục chung của Super Admin
+  const extractedCustomId = extractDriveFolderId(params.customFolderId);
+  const parentFolderId = extractedCustomId || process.env.GOOGLE_DRIVE_FOLDER_ID;
+
   // Nếu có đủ thông tin Service Account Google
   if (serviceAccountEmail && privateKey) {
     try {
-      // Dynamic import để tránh lỗi khi build môi trường tối giản
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { google } = (await import("googleapis")) as any;
 
@@ -33,33 +66,37 @@ export async function uploadToGoogleDrive(params: {
       });
 
       const drive = google.drive({ version: "v3", auth });
-      const rootFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-      // 1. Tìm hoặc tạo thư mục theo tên cuộc thi
-      let targetFolderId = rootFolderId;
-      if (rootFolderId) {
+      // 1. Tìm hoặc tạo thư mục con theo tên cuộc thi nằm trong parentFolderId
+      let targetFolderId = parentFolderId;
+      if (parentFolderId) {
         const folderName = `[Cuộc thi] ${params.competitionTitle.trim()}`;
-        const query = `'${rootFolderId}' in parents and name = '${folderName.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+        const query = `'${parentFolderId}' in parents and name = '${folderName.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
         
-        const folderRes = await drive.files.list({
-          q: query,
-          fields: "files(id, name)",
-          spaces: "drive",
-        });
-
-        if (folderRes.data.files && folderRes.data.files.length > 0) {
-          targetFolderId = folderRes.data.files[0].id;
-        } else {
-          // Tạo thư mục mới
-          const newFolder = await drive.files.create({
-            requestBody: {
-              name: folderName,
-              mimeType: "application/vnd.google-apps.folder",
-              parents: [rootFolderId],
-            },
-            fields: "id",
+        try {
+          const folderRes = await drive.files.list({
+            q: query,
+            fields: "files(id, name)",
+            spaces: "drive",
           });
-          targetFolderId = newFolder.data.id;
+
+          if (folderRes.data.files && folderRes.data.files.length > 0) {
+            targetFolderId = folderRes.data.files[0].id;
+          } else {
+            // Tạo thư mục cuộc thi mới bên trong thư mục cha
+            const newFolder = await drive.files.create({
+              requestBody: {
+                name: folderName,
+                mimeType: "application/vnd.google-apps.folder",
+                parents: [parentFolderId],
+              },
+              fields: "id",
+            });
+            targetFolderId = newFolder.data.id;
+          }
+        } catch (folderErr) {
+          console.warn("[GoogleDriveService] Không thể tạo thư mục con trong folder cha, sẽ upload trực tiếp vào folder cha:", folderErr);
+          targetFolderId = parentFolderId;
         }
       }
 
@@ -92,7 +129,7 @@ export async function uploadToGoogleDrive(params: {
         fields: "id, webViewLink, webContentLink",
       });
 
-      // Cấp quyền xem cho người có link
+      // Cấp quyền xem cho bất kỳ ai có link
       const fileId = fileRes.data.id;
       if (fileId) {
         await drive.permissions.create({
@@ -107,19 +144,20 @@ export async function uploadToGoogleDrive(params: {
       return {
         fileId: fileId || `drive-${Date.now()}`,
         driveUrl: fileRes.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
+        folderId: targetFolderId,
         isMock: false,
       };
     } catch (err) {
       console.error("[GoogleDriveService] Lỗi upload Drive:", err);
-      // Fallback về mock url nếu có lỗi kết nối
     }
   }
 
-  // Chế độ mô phỏng khi chưa cấu hình Google API
+  // Chế độ dự phòng / mô phỏng khi chưa gắn Service Account
   const mockFileId = `drive-mock-${Date.now()}`;
   return {
     fileId: mockFileId,
     driveUrl: `https://drive.google.com/file/d/${mockFileId}/view?usp=sharing`,
+    folderId: parentFolderId || undefined,
     isMock: true,
   };
 }

@@ -8,6 +8,7 @@ export interface TeacherDto {
   role: Role;
   pinCode?: string;
   isActive: boolean;
+  driveFolderId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

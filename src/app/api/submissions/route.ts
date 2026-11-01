@@ -20,7 +20,11 @@ export async function POST(req: Request) {
 
     const competition = await db.competition.findUnique({
       where: { id: competitionId },
-      include: { assignees: true },
+      include: {
+        creator: {
+          select: { id: true, name: true, driveFolderId: true },
+        },
+      },
     });
 
     if (!competition) {
@@ -51,7 +55,12 @@ export async function POST(req: Request) {
 
     const submissionStatus = isPastDeadline ? "LATE" : "ON_TIME";
 
-    // Xử lý upload ảnh minh chứng
+    // XÁC ĐỊNH THƯ MỤC GOOGLE DRIVE:
+    // Ưu tiên 1: Thư mục Drive riêng của cuộc thi này.
+    // Ưu tiên 2: Thư mục Drive cá nhân của Admin tạo cuộc thi.
+    // Ưu tiên 3: Mặc định fallback về Drive chung của Super Admin.
+    const customDriveFolderId = competition.driveFolderId || competition.creator.driveFolderId || null;
+
     let driveFileId = null;
     let driveFileUrl = null;
     let localImageUrl = base64Image || null;
@@ -63,10 +72,19 @@ export async function POST(req: Request) {
         mimeType: mimeType || "image/jpeg",
         competitionTitle: competition.title,
         teacherName: teacher.name,
+        customFolderId: customDriveFolderId,
       });
 
       driveFileId = uploadRes.fileId;
       driveFileUrl = uploadRes.driveUrl;
+
+      // Nếu cuộc thi chưa có driveFolderId nhưng đã tạo folder trên Drive, lưu lại vào competition
+      if (!competition.driveFolderId && uploadRes.folderId) {
+        await db.competition.update({
+          where: { id: competition.id },
+          data: { driveFolderId: uploadRes.folderId },
+        }).catch(() => null);
+      }
     }
 
     // Lưu hoặc cập nhật bản ghi Submission (Upsert)

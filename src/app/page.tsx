@@ -15,6 +15,7 @@ import {
   GraduationCap,
   Sparkles,
   RefreshCw,
+  FolderSync,
   Search,
   Filter
 } from "lucide-react";
@@ -22,6 +23,7 @@ import {
 // Modals & Components
 import { LoginModal } from "@/features/auth/components/LoginModal";
 import { ChangePinModal } from "@/features/auth/components/ChangePinModal";
+import { DriveConfigModal } from "@/features/auth/components/DriveConfigModal";
 import { CompetitionCard } from "@/features/competitions/components/CompetitionCard";
 import { CompetitionFormModal } from "@/features/competitions/components/CompetitionFormModal";
 import { TaskActionModal } from "@/features/competitions/components/TaskActionModal";
@@ -50,6 +52,7 @@ export default function HomePage() {
   // Modal States
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isChangePinOpen, setIsChangePinOpen] = useState(false);
+  const [isDriveConfigOpen, setIsDriveConfigOpen] = useState(false);
 
   // Competition modals
   const [selectedCompForSubmit, setSelectedCompForSubmit] = useState<CompetitionDto | null>(null);
@@ -81,7 +84,7 @@ export default function HomePage() {
         setCompetitions(compJson.data);
       }
 
-      // 2. Tải danh sách giáo viên trường (tự động loại trừ Super Admin)
+      // 2. Tải danh sách giáo viên trường
       const teacherRes = await fetch("/api/teachers");
       const teacherJson = await teacherRes.json();
       if (teacherJson.success) {
@@ -137,7 +140,6 @@ export default function HomePage() {
     }
   };
 
-  // Cập nhật vai trò khi Super Admin phân quyền
   const handleTeacherRoleChange = () => {
     loadData();
   };
@@ -161,7 +163,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
-      {/* Top Header - Tối ưu trên di động */}
+      {/* Top Header */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2">
           {/* Logo & School Title */}
@@ -179,13 +181,13 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* User Account / Login Button */}
+          {/* User Account / Buttons */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {currentUser ? (
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <div className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs font-bold text-slate-800 max-w-[110px] sm:max-w-none truncate">
+                    <span className="text-xs font-bold text-slate-800 max-w-[100px] sm:max-w-none truncate">
                       {currentUser.name}
                     </span>
                     {isSuperAdmin ? (
@@ -200,6 +202,18 @@ export default function HomePage() {
                   </div>
                   <div className="text-[10px] text-slate-400 hidden sm:block">{currentUser.department}</div>
                 </div>
+
+                {/* Cấu hình Google Drive cá nhân (chỉ Admin/Super Admin) */}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setIsDriveConfigOpen(true)}
+                    className="p-1.5 sm:p-2 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-colors"
+                    title="Cấu hình Google Drive cá nhân của bạn"
+                  >
+                    <FolderSync className="w-4 h-4" />
+                  </button>
+                )}
 
                 {/* Đổi mã PIN */}
                 <button
@@ -240,7 +254,6 @@ export default function HomePage() {
 
       {/* Main Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
-        {/* Nếu đang xem chi tiết báo cáo của 1 cuộc thi */}
         {viewingReportCompId ? (
           <ReportDetailView
             competitionId={viewingReportCompId}
@@ -394,7 +407,7 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* TAB 2: QUẢN LÝ GIÁO VIÊN (Dành cho Admin & Tổng Admin) */}
+            {/* TAB 2: QUẢN LÝ GIÁO VIÊN */}
             {activeTab === "TEACHERS" && isAdmin && (
               <TeacherTable
                 teachers={teachers}
@@ -418,7 +431,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400 mt-auto">
-        Hệ Thống Báo Cáo Cuộc Thi &bull; Hỗ trợ nộp minh chứng Google Drive &bull; Tương thích Mobile 100%
+        Hệ Thống Báo Cáo Cuộc Thi &bull; Hỗ trợ lưu trữ Google Drive linh hoạt &bull; Phiên bản 1.2.0
       </footer>
 
       {/* MODALS */}
@@ -433,6 +446,12 @@ export default function HomePage() {
       <ChangePinModal
         isOpen={isChangePinOpen}
         onClose={() => setIsChangePinOpen(false)}
+      />
+
+      <DriveConfigModal
+        isOpen={isDriveConfigOpen}
+        onClose={() => setIsDriveConfigOpen(false)}
+        onSuccess={loadData}
       />
 
       <UploadProofModal
