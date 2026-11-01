@@ -11,6 +11,8 @@ export interface ReportRowData {
   submissionStatus: string; // 'ĐÚNG HẠN' | 'NỘP MUỘN' | 'CHƯA NỘP'
   submitTime: string | null;
   driveFileUrl: string | null;
+  localImageUrl?: string | null;
+  imageFileName?: string | null;
   note?: string;
 }
 

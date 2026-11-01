@@ -6,7 +6,20 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
-## [1.5.2] - 2026-11-02
+## [1.6.0] - 2026-11-02
+### Hỗ Trợ Đa Định Dạng Minh Chứng: Ảnh, Word, PDF, Excel, PowerPoint & ZIP
+- **Nâng cấp Cửa sổ Nộp Minh Chứng ([`UploadProofModal.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/submissions/components/UploadProofModal.tsx)):**
+  - Mở rộng hỗ trợ chọn mọi loại tệp: Hình ảnh (JPG, PNG, WebP), Tài liệu PDF (.pdf), Word (.doc, .docx), Bảng tính Excel (.xls, .xlsx, .csv), PowerPoint (.ppt, .pptx), Tệp nén (.zip, .rar).
+  - Phân loại xử lý thông minh: Tự động nén tối ưu dung lượng đối với hình ảnh; đối với tài liệu (Word, Excel, PDF...), đọc trực tiếp và kiểm soát dung lượng an toàn (tối đa 25MB) tránh lỗi xử lý.
+  - Hiển thị thẻ xem trước tài liệu trực quan với biểu tượng màu sắc chuẩn văn phòng theo từng định dạng (Word xanh dương, Excel xanh lá, PDF đỏ, Tệp nén tím), tên file và kích thước thực tế.
+  - Cung cấp 2 lựa chọn tiện lợi: "Chụp Ảnh Trực Tiếp" bằng camera điện thoại hoặc "Chọn Tệp / Tài Liệu" từ máy tính / thư viện.
+- **Tối ưu Hộp Xem & Tải Minh Chứng ([`EvidenceLightbox.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/submissions/components/EvidenceLightbox.tsx)):**
+  - Nhận diện định dạng tệp thông minh: Với ảnh, cung cấp đầy đủ công cụ xoay 90°, phóng to/thu nhỏ; với tài liệu (PDF, Word, Excel...), hiển thị thẻ thông tin sang trọng với các thao tác 1-click: `[Tải về máy]`, `[Mở xem trực tiếp]` (đối với PDF) và `[Mở Google Drive]`.
+- **Cập nhật Bảng Chi Tiết Báo Cáo ([`ReportDetailView.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/reports/components/ReportDetailView.tsx)):**
+  - Cột Minh chứng hiển thị nhãn và màu sắc tương ứng theo loại tệp: `[Xem ảnh]`, `[Xem PDF]`, `[Xem Word]`, `[Xem Excel]`, `[File nén]`, `[Xem tệp]`.
+- **Bổ sung Hàm Tiện ích Phân Loại Tệp ([`src/lib/utils.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/lib/utils.ts)):**
+  - Thêm `getFileTypeInfo`, `formatFileSize`, `getMimeTypeFromFileName` nhận diện tự động và chuẩn hóa MIME type cho Google Drive Webhook API và backend Next.js.
+
 ### Tự Động Khởi Tạo Thư Mục Cuộc Thi Trên Drive Ngay Khi Tạo Cuộc Thi
 - **Tự động tạo thư mục con trên Google Drive khi tạo cuộc thi ([`/api/competitions`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/competitions/route.ts)):**
   - Tự động gọi Webhook Google Apps Script để tạo sẵn thư mục `[Cuộc thi] Tên cuộc thi` ngay khi Admin bấm tạo cuộc thi, không cần đợi giáo viên nộp bài.

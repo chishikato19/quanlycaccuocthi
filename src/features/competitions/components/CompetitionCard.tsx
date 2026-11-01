@@ -203,7 +203,7 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
                   onClick={() => onOpenSubmit(competition)}
                   className="text-[11px] text-emerald-700 underline font-medium hover:text-emerald-900 shrink-0"
                 >
-                  Nộp lại ảnh
+                  Nộp lại / Đổi tệp
                 </button>
               </div>
             ) : (

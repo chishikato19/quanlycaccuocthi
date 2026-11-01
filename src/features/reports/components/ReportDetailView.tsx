@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { CompetitionDto } from "@/types";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, getFileTypeInfo } from "@/lib/utils";
 import {
   ArrowLeft,
   FileSpreadsheet,
@@ -16,7 +16,10 @@ import {
   Check,
   Search,
   Filter,
-  FolderOpen
+  FolderOpen,
+  FileText,
+  FolderArchive,
+  Download,
 } from "lucide-react";
 import { ExportModal } from "./ExportModal";
 import { EvidenceLightbox, LightboxItem } from "@/features/submissions/components/EvidenceLightbox";
@@ -81,6 +84,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
               submittedAt: r.submitTime || new Date().toISOString(),
               imageUrl: r.localImageUrl || r.driveFileUrl || "",
               driveFileUrl: r.driveFileUrl,
+              imageFileName: r.imageFileName,
               note: r.note,
             });
           }
@@ -390,23 +394,41 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                     </td>
                     <td className="py-2.5 px-3.5">
                       {r.isSubmitted ? (
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenLightbox(r.teacherId)}
-                            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors"
-                            title="Xem nhanh ảnh minh chứng"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>Xem ảnh</span>
-                          </button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {(() => {
+                            const info = getFileTypeInfo(r.imageFileName, r.localImageUrl || r.driveFileUrl);
+                            let actionText = "Xem tệp";
+                            if (info.category === "IMAGE") actionText = "Xem ảnh";
+                            else if (info.category === "PDF") actionText = "Xem PDF";
+                            else if (info.category === "WORD") actionText = "Xem Word";
+                            else if (info.category === "EXCEL") actionText = "Xem Excel";
+                            else if (info.category === "POWERPOINT") actionText = "Xem PPT";
+                            else if (info.category === "ARCHIVE") actionText = "File nén";
+
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenLightbox(r.teacherId)}
+                                className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-all ${info.badgeBg} ${info.badgeText} ${info.borderColor} hover:opacity-85 shadow-2xs`}
+                                title={`Mở xem ${info.label} (${r.imageFileName || info.ext})`}
+                              >
+                                {info.category === "IMAGE" && <ImageIcon className="w-3.5 h-3.5" />}
+                                {info.category === "PDF" && <FileText className="w-3.5 h-3.5" />}
+                                {info.category === "WORD" && <FileText className="w-3.5 h-3.5" />}
+                                {info.category === "EXCEL" && <FileSpreadsheet className="w-3.5 h-3.5" />}
+                                {info.category === "ARCHIVE" && <FolderArchive className="w-3.5 h-3.5" />}
+                                {(info.category === "OTHER" || info.category === "POWERPOINT") && <Eye className="w-3.5 h-3.5" />}
+                                <span>{actionText}</span>
+                              </button>
+                            );
+                          })()}
 
                           {r.driveFileUrl && !r.driveFileUrl.includes("drive-mock") && !r.driveFileUrl.includes("mock") && (
                             <a
                               href={r.driveFileUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-1 hover:bg-slate-100 text-slate-400 hover:text-sky-600 rounded-md transition-colors"
+                              className="p-1 hover:bg-slate-100 text-slate-400 hover:text-purple-600 rounded-md transition-colors"
                               title="Mở file trên Google Drive"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />

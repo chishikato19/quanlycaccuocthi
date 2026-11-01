@@ -10,10 +10,14 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
-  Calendar,
-  FileText
+  FileText,
+  FileSpreadsheet,
+  FolderArchive,
+  File as FileIcon,
+  FileType as FileTypeIcon,
+  Download,
 } from "lucide-react";
-import { formatDateTime } from "@/lib/utils";
+import { getFileTypeInfo } from "@/lib/utils";
 
 export interface LightboxItem {
   id: string;
@@ -86,9 +90,30 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
 
   if (!isOpen || !currentItem) return null;
 
+  const fileInfo = getFileTypeInfo(currentItem.imageFileName, currentItem.imageUrl);
+  const isImage = fileInfo.category === "IMAGE";
+  const safeFileName = currentItem.imageFileName || `minh_chung_${currentItem.teacherName}.${fileInfo.ext.toLowerCase()}`;
+
+  const renderDocumentIcon = () => {
+    switch (fileInfo.category) {
+      case "PDF":
+        return <FileText className="w-16 h-16 text-rose-400" />;
+      case "WORD":
+        return <FileText className="w-16 h-16 text-blue-400" />;
+      case "EXCEL":
+        return <FileSpreadsheet className="w-16 h-16 text-emerald-400" />;
+      case "POWERPOINT":
+        return <FileTypeIcon className="w-16 h-16 text-amber-400" />;
+      case "ARCHIVE":
+        return <FolderArchive className="w-16 h-16 text-purple-400" />;
+      default:
+        return <FileIcon className="w-16 h-16 text-slate-400" />;
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-md select-none touch-manipulation">
-      {/* Top Bar - Tối ưu trên cả điện thoại và máy tính */}
+      {/* Top Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between px-3 sm:px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 text-white z-10 gap-2">
         <div className="flex items-center justify-between sm:justify-start gap-2.5">
           <div className="flex items-center gap-2">
@@ -107,6 +132,9 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
                 >
                   {currentItem.status === "LATE" ? "Nộp muộn" : "Đúng hạn"}
                 </span>
+                <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-md ${fileInfo.badgeBg} ${fileInfo.badgeText}`}>
+                  {fileInfo.label}
+                </span>
               </div>
               <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
                 <span>{currentItem.department}</span>
@@ -116,7 +144,7 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
             </div>
           </div>
 
-          {/* Nút đóng trên mobile ở góc phải */}
+          {/* Nút đóng trên mobile */}
           <button
             type="button"
             onClick={onClose}
@@ -126,63 +154,79 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
           </button>
         </div>
 
-        {/* Thanh công cụ xem ảnh */}
+        {/* Thanh công cụ xem file */}
         <div className="flex items-center justify-between sm:justify-end gap-1.5 pt-1 sm:pt-0 border-t border-slate-800 sm:border-0">
+          {/* Nút Tải Về Máy */}
+          <a
+            href={currentItem.imageUrl}
+            download={safeFileName}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-800/50 rounded-lg transition-colors"
+            title="Tải tệp này về máy"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="text-[11px]">Tải về</span>
+          </a>
+
+          {/* Nút Mở Google Drive */}
           {currentItem.driveFileUrl && (
             <a
               href={currentItem.driveFileUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-sky-400 bg-sky-950/60 hover:bg-sky-900 border border-sky-800/50 rounded-lg transition-colors"
+              title="Mở tệp trên Google Drive"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span className="text-[11px]">Mở Drive</span>
+              <span className="text-[11px]">Drive</span>
             </a>
           )}
 
-          <div className="flex items-center gap-1 ml-auto sm:ml-0">
-            <button
-              type="button"
-              onClick={() => setRotation(r => (r + 90) % 360)}
-              className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-              title="Xoay ảnh 90°"
-            >
-              <RotateCw className="w-4 h-4" />
-            </button>
+          {/* Các nút xoay/phóng to chỉ dành cho Ảnh */}
+          {isImage && (
+            <div className="flex items-center gap-1 ml-auto sm:ml-0">
+              <button
+                type="button"
+                onClick={() => setRotation(r => (r + 90) % 360)}
+                className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                title="Xoay ảnh 90°"
+              >
+                <RotateCw className="w-4 h-4" />
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setScale(s => Math.min(s + 0.25, 3))}
-              className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-              title="Phóng to"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setScale(s => Math.min(s + 0.25, 3))}
+                className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                title="Phóng to"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setScale(s => Math.max(s - 0.25, 0.5))}
-              className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
-              title="Thu nhỏ"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={() => setScale(s => Math.max(s - 0.25, 0.5))}
+                className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                title="Thu nhỏ"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
-            {/* Nút đóng trên máy tính */}
-            <button
-              type="button"
-              onClick={onClose}
-              className="hidden sm:block p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-colors ml-1"
-              title="Đóng (Esc)"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          {/* Nút đóng trên máy tính */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="hidden sm:block p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-colors ml-1"
+            title="Đóng (Esc)"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
-      {/* Main Image View Area */}
-      <div className="relative flex-1 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+      {/* Main View Area */}
+      <div className="relative flex-1 flex items-center justify-center p-3 sm:p-6 overflow-hidden">
         {/* Nút Trước */}
         {currentIndex > 0 && (
           <button
@@ -195,18 +239,77 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
           </button>
         )}
 
-        {/* Khung hiển thị ảnh */}
-        <div className="max-w-full max-h-full flex items-center justify-center transition-transform duration-200">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={currentItem.imageUrl}
-            alt={`Minh chứng của ${currentItem.teacherName}`}
-            className="max-h-[70vh] sm:max-h-[75vh] max-w-[90vw] object-contain rounded-lg shadow-2xl transition-all duration-150"
-            style={{
-              transform: `scale(${scale}) rotate(${rotation}deg)`,
-            }}
-          />
-        </div>
+        {/* Khung hiển thị: Phân biệt Ảnh và Tài Liệu */}
+        {isImage ? (
+          <div className="max-w-full max-h-full flex items-center justify-center transition-transform duration-200">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={currentItem.imageUrl}
+              alt={`Minh chứng của ${currentItem.teacherName}`}
+              className="max-h-[70vh] sm:max-h-[75vh] max-w-[90vw] object-contain rounded-lg shadow-2xl transition-all duration-150"
+              style={{
+                transform: `scale(${scale}) rotate(${rotation}deg)`,
+              }}
+            />
+          </div>
+        ) : (
+          /* Khung hiển thị Thẻ Tài Liệu (Word, PDF, Excel...) */
+          <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 text-center shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+            <div className="w-24 h-24 mx-auto rounded-3xl bg-slate-800/80 flex items-center justify-center border border-slate-700/80 shadow-inner">
+              {renderDocumentIcon()}
+            </div>
+
+            <div>
+              <span className={`inline-block text-xs font-bold px-3 py-1 rounded-full ${fileInfo.badgeBg} ${fileInfo.badgeText} mb-2`}>
+                {fileInfo.label} ({fileInfo.ext})
+              </span>
+              <h4 className="text-sm sm:text-base font-bold text-white break-all px-2">
+                {safeFileName}
+              </h4>
+              <p className="text-xs text-slate-400 mt-1">
+                Người nộp: <b>{currentItem.teacherName}</b> &bull; {currentItem.department}
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
+              {/* Tải về */}
+              <a
+                href={currentItem.imageUrl}
+                download={safeFileName}
+                className="w-full sm:w-auto px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 transition-all min-h-[42px]"
+              >
+                <Download className="w-4 h-4" />
+                <span>Tải Tệp Về Máy</span>
+              </a>
+
+              {/* Mở xem PDF hoặc link */}
+              {fileInfo.category === "PDF" && (
+                <a
+                  href={currentItem.imageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all min-h-[42px]"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Mở Xem Trực Tiếp</span>
+                </a>
+              )}
+
+              {/* Mở Google Drive */}
+              {currentItem.driveFileUrl && (
+                <a
+                  href={currentItem.driveFileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-purple-950/70 hover:bg-purple-900/80 text-purple-300 border border-purple-800/60 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all min-h-[42px]"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Mở Google Drive</span>
+                </a>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Nút Tiếp theo */}
         {currentIndex < items.length - 1 && (
