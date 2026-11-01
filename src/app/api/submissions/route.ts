@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { uploadToGoogleDrive } from "@/lib/google-drive";
+import { uploadToGoogleDrive, parseDriveConfig } from "@/lib/google-drive";
 import { isDatabaseConfigured } from "@/lib/mock-data";
 
 export async function POST(req: Request) {
@@ -80,6 +80,21 @@ export async function POST(req: Request) {
     let localImageUrl = base64Image || null;
 
     if (base64Image) {
+      // Lấy cấu hình Drive chung của Nhà trường từ Super Admin
+      const superAdmin = await db.teacher.findFirst({
+        where: {
+          OR: [
+            { role: "SUPER_ADMIN" },
+            { phone: "admin" },
+            { name: { contains: "Quản Trị" } },
+            { department: "Hệ Thống" },
+          ],
+        },
+        select: { driveFolderId: true },
+      });
+
+      const schoolDrive = parseDriveConfig(superAdmin?.driveFolderId || competition.creator?.driveFolderId);
+
       // Đẩy ảnh thẳng vào thư mục con của cuộc thi này
       const uploadRes = await uploadToGoogleDrive({
         base64Data: base64Image,
@@ -88,7 +103,8 @@ export async function POST(req: Request) {
         competitionTitle: competition.title,
         teacherName: teacher.name,
         competitionFolderId: competition.driveFolderId,
-        masterParentFolderId: competition.creator.driveFolderId,
+        masterParentFolderId: schoolDrive.folderId || competition.creator?.driveFolderId,
+        webhookUrl: schoolDrive.webhookUrl,
       });
 
       driveFileId = uploadRes.fileId;

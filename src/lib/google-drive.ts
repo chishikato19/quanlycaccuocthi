@@ -1,3 +1,19 @@
+import {
+  extractDriveFolderId,
+  parseDriveConfig,
+  serializeDriveConfig,
+  GOOGLE_APPS_SCRIPT_TEMPLATE,
+  ParsedDriveConfig,
+} from "./google-drive-shared";
+
+export {
+  extractDriveFolderId,
+  parseDriveConfig,
+  serializeDriveConfig,
+  GOOGLE_APPS_SCRIPT_TEMPLATE,
+};
+export type { ParsedDriveConfig };
+
 export interface DriveUploadResult {
   fileId: string;
   driveUrl: string;
@@ -13,45 +29,47 @@ export interface CompetitionFolderResult {
 }
 
 /**
- * Tự động trích xuất Folder ID từ URL chia sẻ Google Drive hoặc ID thô
- */
-export function extractDriveFolderId(input?: string | null): string | null {
-  if (!input || !input.trim()) return null;
-  const trimmed = input.trim();
-
-  // URL dạng /folders/ID
-  const match = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-  if (match && match[1]) {
-    return match[1];
-  }
-
-  // URL dạng ?id=ID
-  const idParamMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (idParamMatch && idParamMatch[1]) {
-    return idParamMatch[1];
-  }
-
-  // ID thô
-  if (!trimmed.includes("/") && !trimmed.includes(".")) {
-    return trimmed;
-  }
-
-  return null;
-}
-
-/**
  * TỰ ĐỘNG TẠO HOẶC LẤY THƯ MỤC CON CHO CUỘC THI TRONG THƯ MỤC CHUNG
- * Cấu trúc: [Thư mục chung Nhà trường / Admin] / [Cuộc thi] Tên cuộc thi /
  */
 export async function ensureCompetitionSubfolder(params: {
   competitionTitle: string;
   parentFolderId?: string | null;
+  webhookUrl?: string | null;
 }): Promise<CompetitionFolderResult> {
+  const resolvedParentId = extractDriveFolderId(params.parentFolderId) || process.env.GOOGLE_DRIVE_FOLDER_ID;
+  const webhookUrl = params.webhookUrl || process.env.GOOGLE_DRIVE_WEBHOOK_URL;
+
+  // 1. Nếu có Webhook Google Apps Script, gọi trực tiếp để tạo thư mục
+  if (webhookUrl) {
+    try {
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parentFolderId: resolvedParentId,
+          competitionTitle: params.competitionTitle,
+          base64Data: "",
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.folderId) {
+          return {
+            folderId: data.folderId,
+            folderUrl: data.folderUrl || `https://drive.google.com/drive/folders/${data.folderId}`,
+            isMock: false,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("[GoogleDriveService] Không thể kết nối Webhook khi tạo thư mục:", err);
+    }
+  }
+
+  // 2. Nếu có Service Account Google Cloud
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY;
-
-  // Xác định thư mục cha chung (Ưu tiên thư mục Admin chỉ định, nếu không thì lấy thư mục gốc của Super Admin)
-  const resolvedParentId = extractDriveFolderId(params.parentFolderId) || process.env.GOOGLE_DRIVE_FOLDER_ID;
 
   if (serviceAccountEmail && privateKey) {
     try {
@@ -65,10 +83,8 @@ export async function ensureCompetitionSubfolder(params: {
       });
 
       const drive = google.drive({ version: "v3", auth });
-
       const folderName = `[Cuộc thi] ${params.competitionTitle.trim()}`;
 
-      // Tìm xem thư mục con của cuộc thi này đã tồn tại trong thư mục cha chưa
       let query = `name = '${folderName.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
       if (resolvedParentId) {
         query += ` and '${resolvedParentId}' in parents`;
@@ -89,7 +105,6 @@ export async function ensureCompetitionSubfolder(params: {
         };
       }
 
-      // Tạo mới thư mục con cho cuộc thi nằm bên trong thư mục cha chung
       const fileMetadata: Record<string, unknown> = {
         name: folderName,
         mimeType: "application/vnd.google-apps.folder",
@@ -104,15 +119,10 @@ export async function ensureCompetitionSubfolder(params: {
       });
 
       const newFolderId = createRes.data.id;
-
-      // Cấp quyền xem cho bất kỳ ai có link mở thư mục này
       if (newFolderId) {
         await drive.permissions.create({
           fileId: newFolderId,
-          requestBody: {
-            role: "reader",
-            type: "anyone",
-          },
+          requestBody: { role: "reader", type: "anyone" },
         }).catch(() => null);
       }
 
@@ -126,8 +136,8 @@ export async function ensureCompetitionSubfolder(params: {
     }
   }
 
-  // Chế độ mô phỏng khi chưa kết nối API
-  const mockFolderId = `folder-mock-${Date.now()}`;
+  // 3. Chế độ mô phỏng khi chưa kết nối API
+  const mockFolderId = resolvedParentId ? `${resolvedParentId}` : `folder-mock-${Date.now()}`;
   return {
     folderId: mockFolderId,
     folderUrl: `https://drive.google.com/drive/folders/${mockFolderId}`,
@@ -136,7 +146,7 @@ export async function ensureCompetitionSubfolder(params: {
 }
 
 /**
- * Upload ảnh minh chứng vào đúng thư mục con của cuộc thi
+ * Upload ảnh minh chứng vào đúng thư mục con của cuộc thi trên Google Drive
  */
 export async function uploadToGoogleDrive(params: {
   base64Data: string;
@@ -144,26 +154,64 @@ export async function uploadToGoogleDrive(params: {
   mimeType: string;
   competitionTitle: string;
   teacherName: string;
-  competitionFolderId?: string | null; // ID thư mục con của cuộc thi
-  masterParentFolderId?: string | null; // ID thư mục cha nếu chưa có thư mục con
+  competitionFolderId?: string | null;
+  masterParentFolderId?: string | null;
+  webhookUrl?: string | null;
 }): Promise<DriveUploadResult> {
+  const resolvedParentId = extractDriveFolderId(params.masterParentFolderId) || process.env.GOOGLE_DRIVE_FOLDER_ID;
+  const webhookUrl = params.webhookUrl || process.env.GOOGLE_DRIVE_WEBHOOK_URL;
+
+  // 1. ƯU TIÊN 1: Tải ảnh qua Google Apps Script Webhook (Dễ nhất cho Nhà Trường)
+  if (webhookUrl) {
+    try {
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parentFolderId: resolvedParentId,
+          competitionTitle: params.competitionTitle,
+          competitionFolderId: extractDriveFolderId(params.competitionFolderId),
+          teacherName: params.teacherName,
+          fileName: params.fileName,
+          mimeType: params.mimeType,
+          base64Data: params.base64Data,
+        }),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        if (result.success && result.fileId) {
+          return {
+            fileId: result.fileId,
+            driveUrl: result.fileUrl || `https://drive.google.com/file/d/${result.fileId}/view`,
+            folderId: result.folderId || params.competitionFolderId || undefined,
+            folderUrl: result.folderUrl || (params.competitionFolderId ? `https://drive.google.com/drive/folders/${params.competitionFolderId}` : undefined),
+            isMock: false,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("[GoogleDriveService] Lỗi upload qua Webhook Apps Script:", err);
+    }
+  }
+
+  // 2. ƯU TIÊN 2: Tải ảnh qua Google Cloud Service Account
   const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
-  // 1. Đảm bảo có thư mục con của cuộc thi này
   let targetFolderId = extractDriveFolderId(params.competitionFolderId);
   let targetFolderUrl = targetFolderId ? `https://drive.google.com/drive/folders/${targetFolderId}` : "";
 
   if (!targetFolderId) {
     const ensured = await ensureCompetitionSubfolder({
       competitionTitle: params.competitionTitle,
-      parentFolderId: params.masterParentFolderId,
+      parentFolderId: resolvedParentId,
+      webhookUrl,
     });
     targetFolderId = ensured.folderId;
     targetFolderUrl = ensured.folderUrl;
   }
 
-  // 2. Upload file vào thư mục con đó
   if (serviceAccountEmail && privateKey) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -209,10 +257,7 @@ export async function uploadToGoogleDrive(params: {
       if (fileId) {
         await drive.permissions.create({
           fileId: fileId,
-          requestBody: {
-            role: "reader",
-            type: "anyone",
-          },
+          requestBody: { role: "reader", type: "anyone" },
         }).catch(() => null);
       }
 
@@ -228,11 +273,11 @@ export async function uploadToGoogleDrive(params: {
     }
   }
 
-  // Chế độ mô phỏng
+  // 3. Chế độ dự phòng: Sinh link mở thư mục Google Drive cha đã cấu hình
   const mockFileId = `drive-mock-${Date.now()}`;
   return {
     fileId: mockFileId,
-    driveUrl: `https://drive.google.com/file/d/${mockFileId}/view?usp=sharing`,
+    driveUrl: targetFolderUrl || (resolvedParentId ? `https://drive.google.com/drive/folders/${resolvedParentId}` : `https://drive.google.com/file/d/${mockFileId}/view?usp=sharing`),
     folderId: targetFolderId,
     folderUrl: targetFolderUrl,
     isMock: true,

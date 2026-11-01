@@ -64,7 +64,9 @@ export async function POST(req: Request) {
         phone: phone ? phone.trim() : null,
         role: role === "ADMIN" ? "ADMIN" : "USER",
         pinCode: defaultPin,
-        driveFolderId: extractDriveFolderId(driveFolderId),
+        driveFolderId: typeof driveFolderId === "string" && driveFolderId.trim().startsWith("{")
+          ? driveFolderId.trim()
+          : extractDriveFolderId(driveFolderId),
       },
       select: {
         id: true,
@@ -104,7 +106,9 @@ export async function PUT(req: Request) {
     };
 
     if (driveFolderId !== undefined) {
-      updateData.driveFolderId = extractDriveFolderId(driveFolderId);
+      updateData.driveFolderId = typeof driveFolderId === "string" && driveFolderId.trim().startsWith("{")
+        ? driveFolderId.trim()
+        : extractDriveFolderId(driveFolderId);
     }
 
     const updated = await db.teacher.update({

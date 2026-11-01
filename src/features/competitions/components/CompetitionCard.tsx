@@ -82,16 +82,17 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
 
           {/* Menu thao tác Admin */}
           {isAdmin && (
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-1">
               {folderUrl && (
                 <a
                   href={folderUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-1.5 hover:bg-purple-50 text-purple-600 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[11px] font-semibold rounded-lg border border-purple-200 transition-colors"
                   title="Mở thư mục cuộc thi này trên Google Drive"
                 >
-                  <FolderOpen className="w-3.5 h-3.5" />
+                  <FolderOpen className="w-3 h-3 text-purple-600" />
+                  <span className="hidden sm:inline">Drive</span>
                 </a>
               )}
               <button

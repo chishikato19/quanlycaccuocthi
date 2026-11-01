@@ -6,6 +6,25 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.5.0] - 2026-11-01
+### Nâng cấp Quản lý Google Drive Nhà Trường & Tự Động Chia Thư Mục Cuộc Thi
+- **Chuẩn hóa Thư mục Google Drive Nhà Trường (School Master Drive Folder):**
+  - Đổi tên và tối ưu hóa toàn bộ giao diện từ "Drive cá nhân" thành **"Cấu hình Google Drive Nhà Trường"** dành riêng cho Quản trị hệ thống ([`DriveConfigModal.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/auth/components/DriveConfigModal.tsx)).
+  - Bổ sung nút bấm trực quan `[Drive Trường]` ngay trên thanh tiêu đề ứng dụng kèm đèn báo trạng thái liên kết.
+  - Hiển thị trực tiếp ID thư mục, link mở thư mục trên Google Drive `[Mở Thư Mục ↗]` và cho phép thay đổi đường dẫn Drive của trường bất kỳ lúc nào.
+- **Tích hợp Tự động hóa Google Apps Script Webhook (Zero-Config Google Drive Integration):**
+  - Cung cấp giải pháp tải ảnh và tự động tạo thư mục con `[Cuộc thi] Tên cuộc thi` bên trong thư mục chung của trường thông qua Google Apps Script Webhook ([`src/lib/google-drive.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/lib/google-drive.ts), [`src/lib/google-drive-shared.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/lib/google-drive-shared.ts)).
+  - Tích hợp sẵn mẫu mã nguồn Google Apps Script 20 dòng kèm nút **`[📋 Sao chép mã Apps Script]`** 1-click và hướng dẫn 3 bước cài đặt trong 2 phút không cần tài khoản nhà phát triển Google Cloud hay thẻ tín dụng.
+- **Tính năng Đồng bộ ảnh minh chứng lên Drive (`/api/drive/sync`):**
+  - Bổ sung nút **`[⚡ Đẩy ảnh đã nộp lên Drive]`**: Quét tất cả các minh chứng đã nộp trước đó trong cơ sở dữ liệu và tự động tải lên đúng thư mục cuộc thi trên Google Drive của trường.
+- **Tách biệt Client/Server Bundle:**
+  - Tạo [`src/lib/google-drive-shared.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/lib/google-drive-shared.ts) chứa các hàm phân tích cấu hình, regex và template script cho Client Component, loại bỏ hoàn toàn lỗi webpack `Module not found: net, fs, child_process` trên Next.js.
+- **Cải tiến Trải nghiệm Tạo cuộc thi ([`CompetitionFormModal.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/competitions/components/CompetitionFormModal.tsx), [`CompetitionCard.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/competitions/components/CompetitionCard.tsx)):**
+  - Mặc định chọn "Lưu trên Google Drive chung của Nhà Trường", tự động tạo thư mục con `[Cuộc thi] ...`.
+  - Hiển thị nút bấm `[Drive]` nổi bật trên từng thẻ cuộc thi để truy cập nhanh kho lưu trữ minh chứng.
+
+---
+
 ## [1.4.0] - 2026-11-01
 ### Thêm mới & Tinh chỉnh nghiệp vụ (Features & Cleanups)
 - **Loại bỏ triệt để Quản Trị Hệ Thống (Super Admin) khỏi danh sách thi & danh sách chưa nộp:**

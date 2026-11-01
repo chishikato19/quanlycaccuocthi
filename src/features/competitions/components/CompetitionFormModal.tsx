@@ -88,8 +88,12 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
       setAllowLateSubmission(true);
       setAllowViewProgress(true);
 
-      // Nếu Admin đã có sẵn Drive cá nhân trong hồ sơ
-      if (currentUser?.driveFolderId) {
+      // Cấu hình Drive mặc định cho cuộc thi mới
+      const isSuper = currentUser?.role === "SUPER_ADMIN" || currentUser?.phone === "admin";
+      if (isSuper) {
+        setDriveOption("DEFAULT");
+        setCustomDriveFolder("");
+      } else if (currentUser?.driveFolderId) {
         setDriveOption("CUSTOM");
         setCustomDriveFolder(currentUser.driveFolderId);
       } else {
@@ -254,7 +258,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
             </div>
 
             <div className="space-y-2">
-              {/* Lựa chọn 1: Lưu trên Drive chung của Super Admin */}
+              {/* Lựa chọn 1: Lưu trên Drive chung của Nhà Trường */}
               <label
                 onClick={() => setDriveOption("DEFAULT")}
                 className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
@@ -271,14 +275,14 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
                   className="mt-0.5 text-sky-600 focus:ring-sky-500"
                 />
                 <div>
-                  <div className="text-xs">Lưu trên Google Drive chung của Nhà Trường (Super Admin)</div>
-                  <div className="text-[11px] text-slate-500 font-normal mt-0.5">
-                    Mặc định: Toàn bộ ảnh sẽ tự động gom về kho dữ liệu tập trung của trường.
+                  <div className="text-xs font-bold text-slate-800">Lưu trên Google Drive chung của Nhà Trường</div>
+                  <div className="text-[11px] text-slate-500 font-normal mt-0.5 leading-relaxed">
+                    Hệ thống sẽ tự động tạo thư mục con <code className="bg-slate-100 text-slate-700 px-1 py-0.2 rounded font-mono text-[10px]">[Cuộc thi] {title || "Tên cuộc thi"}</code> bên trong thư mục chung của trường để gom ảnh tập trung.
                   </div>
                 </div>
               </label>
 
-              {/* Lựa chọn 2: Lưu trên Drive riêng của Admin */}
+              {/* Lựa chọn 2: Chỉ định thư mục Drive riêng */}
               <label
                 onClick={() => setDriveOption("CUSTOM")}
                 className={`p-3 rounded-xl border flex items-start gap-2.5 cursor-pointer transition-all ${
@@ -295,9 +299,9 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
                   className="mt-0.5 text-purple-600 focus:ring-purple-500"
                 />
                 <div className="flex-1">
-                  <div className="text-xs">Lưu trên Google Drive riêng của tôi ({currentUser.name})</div>
+                  <div className="text-xs font-bold text-slate-800">Chỉ định một Thư mục Google Drive riêng cho cuộc thi này</div>
                   <div className="text-[11px] text-slate-500 font-normal mt-0.5">
-                    Ảnh minh chứng của cuộc thi này sẽ được chuyển thẳng về tài khoản Drive của bạn.
+                    Tùy chọn: Dán link một thư mục Google Drive riêng biệt nếu bạn không muốn lưu vào thư mục chung của trường.
                   </div>
 
                   {driveOption === "CUSTOM" && (
@@ -310,7 +314,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
                         className="w-full px-3 py-1.5 text-xs border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
                       />
                       <p className="text-[10px] text-purple-700">
-                        * Mẹo: Mở Google Drive của bạn &rarr; Tạo thư mục &rarr; Bấm <b>Chia sẻ</b> &rarr; Chọn <i>"Bất kỳ ai có đường liên kết đều có thể chỉnh sửa"</i> (hoặc chia sẻ cho email Service Account) &rarr; Sao chép link dán vào ô trên.
+                        * Mẹo: Mở Google Drive &rarr; Tạo thư mục cuộc thi &rarr; Bấm <b>Chia sẻ</b> &rarr; Chọn <i>&quot;Bất kỳ ai có đường liên kết đều có thể chỉnh sửa&quot;</i> &rarr; Sao chép link dán vào ô trên.
                       </p>
                     </div>
                   )}

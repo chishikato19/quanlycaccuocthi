@@ -214,15 +214,19 @@ export default function HomePage() {
                   <div className="text-[10px] text-slate-400 hidden sm:block">{currentUser.department}</div>
                 </div>
 
-                {/* Cấu hình Google Drive cá nhân (chỉ Admin/Super Admin) */}
+                {/* Cấu hình Google Drive Nhà Trường / Admin */}
                 {isAdmin && (
                   <button
                     type="button"
                     onClick={() => setIsDriveConfigOpen(true)}
-                    className="p-1.5 sm:p-2 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-colors"
-                    title="Cấu hình Google Drive cá nhân của bạn"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-xs font-semibold rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 transition-colors shadow-sm"
+                    title={isSuperAdmin ? "Cấu hình Google Drive Nhà Trường" : "Cấu hình Google Drive cá nhân"}
                   >
-                    <FolderSync className="w-4 h-4" />
+                    <FolderSync className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                    <span className="hidden sm:inline">{isSuperAdmin ? "Drive Trường" : "Drive"}</span>
+                    {currentUser.driveFolderId && (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Đã liên kết Drive" />
+                    )}
                   </button>
                 )}
 
