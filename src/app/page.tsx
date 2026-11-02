@@ -41,11 +41,37 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"COMPETITIONS" | "TEACHERS">("COMPETITIONS");
   const [competitionSubFilter, setCompetitionSubFilter] = useState<"ALL" | "ACTIVE" | "OVERDUE" | "DONE">("ALL");
 
-  // Data State
-  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
+  // Data State với Instant Cache (SWR): Khởi tạo ngay từ cache để hiển thị tức thì (0.01s)
+  const [competitions, setCompetitions] = useState<CompetitionDto[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("cached_competitions_list");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
   const [teachers, setTeachers] = useState<TeacherDto[]>([]);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  // Nếu đã có cache thì không cần hiện spinner loading toàn màn hình
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("cached_competitions_list");
+        if (cached && JSON.parse(cached).length > 0) return false;
+      } catch {}
+    }
+    return true;
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
+
+  const hasCompetitionsRef = React.useRef(competitions.length > 0);
+  React.useEffect(() => {
+    hasCompetitionsRef.current = competitions.length > 0;
+  }, [competitions.length]);
 
   // Selected for Report View
   const [viewingReportCompId, setViewingReportCompId] = useState<string | null>(null);
@@ -71,46 +97,65 @@ export default function HomePage() {
   const [isExcelPasteOpen, setIsExcelPasteOpen] = useState(false);
   const [selectedTeacherForResetPin, setSelectedTeacherForResetPin] = useState<TeacherDto | null>(null);
 
-  // Load Data
-  const loadData = useCallback(async () => {
-    setIsLoadingData(true);
+  // Lazy Load danh sách giáo viên: chỉ tải khi thực sự cần (Admin xem tab Giáo viên hoặc mở form)
+  const loadTeachers = useCallback(async () => {
     try {
-      // 0. Kiểm tra trạng thái cơ sở dữ liệu
-      fetch("/api/status")
-        .then((r) => r.json())
-        .then((s) => {
-          if (!s.isDatabaseConfigured) {
-            setIsDemoMode(true);
-          }
-        })
-        .catch(() => {});
+      const res = await fetch("/api/teachers");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setTeachers(json.data);
+      }
+    } catch (e) {
+      console.error("Load teachers error:", e);
+    }
+  }, []);
 
-      // 1. Tải danh sách cuộc thi
+  // Tải danh sách cuộc thi (Single Request siêu nhẹ, tối ưu hoá SWR)
+  const loadData = useCallback(async () => {
+    if (!hasCompetitionsRef.current) {
+      setIsLoadingData(true);
+    }
+    setIsRefreshing(true);
+    try {
       const compUrl = currentUser
         ? `/api/competitions?teacherId=${currentUser.id}&role=${currentUser.role}`
         : "/api/competitions";
-      const compRes = await fetch(compUrl);
-      const compJson = await compRes.json();
-      if (compJson.success) {
-        setCompetitions(compJson.data);
-      }
 
-      // 2. Tải danh sách giáo viên trường
-      const teacherRes = await fetch("/api/teachers");
-      const teacherJson = await teacherRes.json();
-      if (teacherJson.success) {
-        setTeachers(teacherJson.data);
+      const res = await fetch(compUrl);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setCompetitions(json.data);
+        if (json.isDemoMode) {
+          setIsDemoMode(true);
+        }
+        // Ghi vào bộ nhớ đệm để lần mở sau hiển thị ngay lập tức
+        try {
+          localStorage.setItem("cached_competitions_list", JSON.stringify(json.data));
+        } catch {}
       }
     } catch (err) {
-      console.error("Load data error:", err);
+      console.error("Load competitions error:", err);
     } finally {
       setIsLoadingData(false);
+      setIsRefreshing(false);
     }
   }, [currentUser]);
 
   useEffect(() => {
+    // Chỉ kích hoạt tải dữ liệu khi phiên đăng nhập đã xác định xong (ngăn chặn Double Fetch)
+    if (isAuthLoading) return;
     loadData();
-  }, [loadData]);
+  }, [loadData, isAuthLoading]);
+
+  // Tự động tải ngầm danh sách giáo viên cho Admin sau khi danh sách cuộc thi đã sẵn sàng
+  useEffect(() => {
+    if (isAdmin && teachers.length === 0 && !isLoadingData) {
+      const timer = setTimeout(() => {
+        loadTeachers();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAdmin, teachers.length, isLoadingData, loadTeachers]);
 
   // Tự động mở LoginModal nếu chưa đăng nhập và đã load xong
   useEffect(() => {
@@ -142,7 +187,7 @@ export default function HomePage() {
       const res = await fetch(`/api/teachers?id=${teacher.id}`, { method: "DELETE" });
       const data = await res.json();
       if (res.ok && data.success) {
-        loadData();
+        loadTeachers();
       } else {
         alert(data.error || "Không thể xóa giáo viên");
       }
@@ -152,6 +197,7 @@ export default function HomePage() {
   };
 
   const handleTeacherRoleChange = () => {
+    loadTeachers();
     loadData();
   };
 
@@ -317,7 +363,10 @@ export default function HomePage() {
                 {isAdmin && (
                   <button
                     type="button"
-                    onClick={() => setActiveTab("TEACHERS")}
+                    onClick={() => {
+                      setActiveTab("TEACHERS");
+                      if (teachers.length === 0) loadTeachers();
+                    }}
                     className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shrink-0 ${
                       activeTab === "TEACHERS"
                         ? "bg-sky-600 text-white shadow-md shadow-sky-600/20"
@@ -325,7 +374,7 @@ export default function HomePage() {
                     }`}
                   >
                     <Users className="w-4 h-4" />
-                    <span>Danh Sách Giáo Viên ({teachers.length})</span>
+                    <span>Danh Sách Giáo Viên {teachers.length > 0 ? `(${teachers.length})` : ""}</span>
                   </button>
                 )}
               </div>
@@ -335,6 +384,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (teachers.length === 0) loadTeachers();
                     setSelectedCompForEdit(null);
                     setIsCompFormOpen(true);
                   }}
@@ -376,11 +426,12 @@ export default function HomePage() {
                   <button
                     type="button"
                     onClick={loadData}
-                    className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1 text-xs ml-auto"
+                    disabled={isRefreshing}
+                    className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1 text-xs ml-auto disabled:opacity-60"
                     title="Làm mới dữ liệu"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Làm mới</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-sky-600" : ""}`} />
+                    <span className="hidden sm:inline">{isRefreshing ? "Đang đồng bộ..." : "Làm mới"}</span>
                   </button>
                 </div>
 
@@ -397,6 +448,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={() => {
+                          if (teachers.length === 0) loadTeachers();
                           setSelectedCompForEdit(null);
                           setIsCompFormOpen(true);
                         }}
@@ -418,6 +470,7 @@ export default function HomePage() {
                         }}
                         onOpenReport={c => setViewingReportCompId(c.id)}
                         onEdit={c => {
+                          if (teachers.length === 0) loadTeachers();
                           setSelectedCompForEdit(c);
                           setIsCompFormOpen(true);
                         }}

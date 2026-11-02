@@ -45,6 +45,9 @@ model Competition {
 
   assignees           CompetitionAssignee[]
   submissions         Submission[]
+
+  @@index([createdAt])
+  @@index([status])
 }
 
 model CompetitionAssignee {
@@ -57,6 +60,8 @@ model CompetitionAssignee {
   teacher       Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@unique([competitionId, teacherId])
+  @@index([teacherId])
+  @@index([competitionId])
 }
 
 model Submission {
@@ -76,4 +81,6 @@ model Submission {
   teacher       Teacher     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@unique([competitionId, teacherId])
+  @@index([teacherId])
+  @@index([competitionId])
 }

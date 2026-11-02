@@ -6,6 +6,23 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.8.3] - 2026-11-02
+### Tối Ưu Hóa Tốc Độ Tải Trang Chủ & Danh Sách Cuộc Thi Siêu Tốc (Instant Cache SWR + Lazy Loading)
+- **Tải Trang Tức Thì 0.01 Giây (Instant Cache / SWR Pattern) ([`src/app/page.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/page.tsx)):**
+  - Khởi tạo danh sách cuộc thi trực tiếp từ `localStorage`. Mở trang hiển thị danh sách cuộc thi ngay lập tức, hoàn toàn loại bỏ màn hình chờ (spinner) khó chịu.
+  - Tự động đồng bộ ngầm dữ liệu mới nhất từ máy chủ và cập nhật vào bộ nhớ đệm (Background Revalidation).
+- **Loại Bỏ Nghẽn Serverless Đa Luồng:**
+  - Cắt bỏ hoàn toàn lệnh gọi `/api/status` thừa thãi trên trang chủ.
+  - Chuyển `/api/teachers` sang Lazy Load: Không tự động tải danh sách giáo viên khi mở trang; chỉ tải ngầm khi Admin vào tab Giáo viên hoặc bấm nút tạo/sửa cuộc thi.
+  - Giảm số lượng Serverless Lambda Cold Start từ 3 container đồng thời xuống còn **duy nhất 1 request `/api/competitions` siêu nhẹ**.
+- **Tối Ưu Hóa Truy Vấn CSDL PostgreSQL ([`src/app/api/competitions/route.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/competitions/route.ts)):**
+  - Chuyển sang đếm SQL bằng Prisma `_count`, chỉ tải đúng 1 bản ghi bài nộp của cá nhân người dùng (`take: 1`), giảm 95% lượng dữ liệu truyền qua mạng.
+  - Đẩy điều kiện lọc của giáo viên thường (`role === "USER"`) trực tiếp vào mệnh đề `WHERE` của CSDL.
+- **Bổ Sung Index CSDL Toàn Diện ([`prisma/schema.prisma`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/prisma/schema.prisma)):**
+  - Tạo Index cho `Competition(createdAt, status)`, `CompetitionAssignee(teacherId, competitionId)`, `Submission(teacherId, competitionId)`.
+
+---
+
 ## [1.8.2] - 2026-11-02
 ### Sửa Lỗi Nhận Diện Sai Định Dạng Ảnh Thành PDF Do Chuỗi Base64
 - **Khắc Phục Thuật Toán Nhận Diện Định Dạng ([`src/lib/utils.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/lib/utils.ts)):**

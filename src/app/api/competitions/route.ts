@@ -44,40 +44,66 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, data: result, isDemoMode: true });
     }
 
-    const competitions = await db.competition.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        creator: {
-          select: { id: true, name: true, driveFolderId: true },
-        },
-        assignees: {
-          include: {
-            teacher: {
-              select: { id: true, name: true, department: true },
-            },
-          },
-        },
-        submissions: {
-          select: {
-            id: true,
-            teacherId: true,
-            status: true,
-            submittedAt: true,
-            driveFileUrl: true,
-            note: true,
-            reviewStatus: true,
-          },
+    // 1. Lọc trực tiếp ở cấp CSDL: Nếu là USER thường thì chỉ lấy cuộc thi mà giáo viên này được phân công
+    const whereClause: Record<string, unknown> = {};
+    if (role === "USER" && teacherId) {
+      whereClause.assignees = {
+        some: { teacherId },
+      };
+    }
+
+    // 2. Tối ưu include: chỉ đếm tổng số lượng (_count) thay vì kéo toàn bộ hàng nghìn object quan hệ
+    const includeClause: Record<string, unknown> = {
+      creator: {
+        select: { id: true, name: true, driveFolderId: true },
+      },
+      _count: {
+        select: {
+          assignees: true,
+          submissions: true,
         },
       },
+    };
+
+    if (teacherId) {
+      // Chỉ lấy duy nhất 1 bản ghi bài nộp của chính người dùng hiện tại
+      includeClause.submissions = {
+        where: { teacherId },
+        select: {
+          id: true,
+          teacherId: true,
+          status: true,
+          submittedAt: true,
+          driveFileUrl: true,
+          note: true,
+          reviewStatus: true,
+        },
+        take: 1,
+      };
+
+      // Nếu là Admin, chỉ kiểm tra xem Admin có nằm trong danh sách phân công không (1 bản ghi)
+      if (role !== "USER") {
+        includeClause.assignees = {
+          where: { teacherId },
+          select: { teacherId: true },
+          take: 1,
+        };
+      }
+    }
+
+    const competitions = await db.competition.findMany({
+      where: whereClause,
+      orderBy: { createdAt: "desc" },
+      include: includeClause as any,
     });
 
-    const result = competitions.map(comp => {
+    const result = competitions.map((comp: any) => {
       const isAssigned = teacherId
-        ? comp.assignees.some(a => a.teacherId === teacherId)
+        ? (role === "USER" ? true : Boolean(comp.assignees && comp.assignees.length > 0))
         : true;
 
-      const userSub = teacherId
-        ? comp.submissions.find(s => s.teacherId === teacherId)
+      const userSub = (teacherId && comp.submissions && comp.submissions.length > 0)
+        ? comp.submissions[0]
         : null;
 
       // Link mở thư mục cuộc thi trên Drive
@@ -96,11 +122,11 @@ export async function GET(req: Request) {
         driveFolderId: comp.driveFolderId,
         driveFolderUrl: folderUrl,
         creatorId: comp.creatorId,
-        creatorName: comp.creator.name,
+        creatorName: comp.creator?.name || "Ban Giám Hiệu",
         createdAt: comp.createdAt.toISOString(),
         updatedAt: comp.updatedAt.toISOString(),
-        totalAssignees: comp.assignees.length,
-        totalSubmissions: comp.submissions.length,
+        totalAssignees: comp._count?.assignees ?? 0,
+        totalSubmissions: comp._count?.submissions ?? 0,
         isAssigned,
         userSubmission: userSub
           ? {
@@ -111,11 +137,7 @@ export async function GET(req: Request) {
       };
     });
 
-    const filtered = (role === "USER" && teacherId)
-      ? result.filter(c => c.isAssigned)
-      : result;
-
-    return NextResponse.json({ success: true, data: filtered });
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
     console.error("Fetch competitions error:", error);
     return NextResponse.json({ success: true, data: mockCompetitions, isDemoMode: true });
