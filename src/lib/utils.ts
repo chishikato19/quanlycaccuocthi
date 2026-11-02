@@ -89,12 +89,113 @@ export interface FileTypeInfo {
 }
 
 export function getFileTypeInfo(fileName?: string | null, dataUrlOrMime?: string | null): FileTypeInfo {
-  const name = (fileName || "").toLowerCase();
-  const raw = (dataUrlOrMime || "").toLowerCase();
+  const name = (fileName || "").toLowerCase().trim();
+  const raw = (dataUrlOrMime || "").toLowerCase().trim();
 
-  // 1. Kiểm tra tài liệu chuyên biệt trước:
-  // PDF (.pdf)
-  if (name.endsWith(".pdf") || raw.includes("application/pdf") || raw.includes("pdf")) {
+  // Chỉ lấy phần MIME type header nếu raw là Data URL (ví dụ: "data:image/jpeg" từ "data:image/jpeg;base64,xxxx")
+  // Tuyệt đối KHÔNG tìm kiếm chuỗi con trên toàn bộ chuỗi Base64 khổng lồ (tránh trùng ngẫu nhiên chữ 'pdf', 'word'...)
+  let mimeHeader = raw;
+  if (raw.startsWith("data:")) {
+    mimeHeader = raw.slice(0, 60).split(";")[0];
+  }
+
+  // 1. Ưu tiên cao nhất: Kiểm tra đuôi mở rộng của tên tệp tin (File Extension)
+  if (name.includes(".")) {
+    const ext = name.split(".").pop() || "";
+
+    // 1.1 Hình ảnh
+    if (["jpg", "jpeg", "png", "webp", "gif", "bmp", "svg", "heic"].includes(ext)) {
+      return {
+        category: "IMAGE",
+        label: "Hình ảnh",
+        ext: ext.toUpperCase(),
+        badgeBg: "bg-sky-50",
+        badgeText: "text-sky-700",
+        borderColor: "border-sky-200",
+      };
+    }
+
+    // 1.2 PDF
+    if (ext === "pdf") {
+      return {
+        category: "PDF",
+        label: "Tài liệu PDF",
+        ext: "PDF",
+        badgeBg: "bg-rose-50",
+        badgeText: "text-rose-700",
+        borderColor: "border-rose-200",
+      };
+    }
+
+    // 1.3 Word
+    if (["doc", "docx"].includes(ext)) {
+      return {
+        category: "WORD",
+        label: "Tài liệu Word",
+        ext: ext.toUpperCase(),
+        badgeBg: "bg-blue-50",
+        badgeText: "text-blue-700",
+        borderColor: "border-blue-200",
+      };
+    }
+
+    // 1.4 Excel
+    if (["xls", "xlsx", "csv"].includes(ext)) {
+      return {
+        category: "EXCEL",
+        label: "Bảng tính Excel",
+        ext: ext.toUpperCase(),
+        badgeBg: "bg-emerald-50",
+        badgeText: "text-emerald-700",
+        borderColor: "border-emerald-200",
+      };
+    }
+
+    // 1.5 PowerPoint
+    if (["ppt", "pptx"].includes(ext)) {
+      return {
+        category: "POWERPOINT",
+        label: "Trình chiếu PowerPoint",
+        ext: ext.toUpperCase(),
+        badgeBg: "bg-amber-50",
+        badgeText: "text-amber-700",
+        borderColor: "border-amber-200",
+      };
+    }
+
+    // 1.6 Nén
+    if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) {
+      return {
+        category: "ARCHIVE",
+        label: "Tệp nén",
+        ext: ext.toUpperCase(),
+        badgeBg: "bg-purple-50",
+        badgeText: "text-purple-700",
+        borderColor: "border-purple-200",
+      };
+    }
+  }
+
+  // 2. Nếu tên tệp không có đuôi mở rộng, kiểm tra Header MIME Type / URL Drive
+  // 2.1 Hình ảnh
+  if (
+    mimeHeader.startsWith("data:image/") ||
+    mimeHeader.startsWith("image/") ||
+    mimeHeader.includes("thumbnail") ||
+    mimeHeader.includes("googleusercontent")
+  ) {
+    return {
+      category: "IMAGE",
+      label: "Hình ảnh",
+      ext: "JPG",
+      badgeBg: "bg-sky-50",
+      badgeText: "text-sky-700",
+      borderColor: "border-sky-200",
+    };
+  }
+
+  // 2.2 PDF
+  if (mimeHeader === "application/pdf" || mimeHeader.startsWith("data:application/pdf")) {
     return {
       category: "PDF",
       label: "Tài liệu PDF",
@@ -105,113 +206,76 @@ export function getFileTypeInfo(fileName?: string | null, dataUrlOrMime?: string
     };
   }
 
-  // Word (.doc, .docx)
+  // 2.3 Word
   if (
-    name.endsWith(".doc") ||
-    name.endsWith(".docx") ||
-    raw.includes("word") ||
-    raw.includes("officedocument.wordprocessingml")
+    mimeHeader.includes("word") ||
+    mimeHeader.includes("officedocument.wordprocessingml")
   ) {
     return {
       category: "WORD",
       label: "Tài liệu Word",
-      ext: name.endsWith(".doc") ? "DOC" : "DOCX",
+      ext: "DOCX",
       badgeBg: "bg-blue-50",
       badgeText: "text-blue-700",
       borderColor: "border-blue-200",
     };
   }
 
-  // Excel (.xls, .xlsx, .csv)
+  // 2.4 Excel
   if (
-    name.endsWith(".xls") ||
-    name.endsWith(".xlsx") ||
-    name.endsWith(".csv") ||
-    raw.includes("sheet") ||
-    raw.includes("excel") ||
-    raw.includes("spreadsheetml") ||
-    raw.includes("csv")
+    mimeHeader.includes("spreadsheetml") ||
+    mimeHeader.includes("ms-excel") ||
+    mimeHeader.includes("csv")
   ) {
     return {
       category: "EXCEL",
       label: "Bảng tính Excel",
-      ext: name.endsWith(".xls") ? "XLS" : name.endsWith(".csv") ? "CSV" : "XLSX",
+      ext: "XLSX",
       badgeBg: "bg-emerald-50",
       badgeText: "text-emerald-700",
       borderColor: "border-emerald-200",
     };
   }
 
-  // PowerPoint (.ppt, .pptx)
+  // 2.5 PowerPoint
   if (
-    name.endsWith(".ppt") ||
-    name.endsWith(".pptx") ||
-    raw.includes("presentation") ||
-    raw.includes("powerpoint")
+    mimeHeader.includes("presentationml") ||
+    mimeHeader.includes("ms-powerpoint")
   ) {
     return {
       category: "POWERPOINT",
       label: "Trình chiếu PowerPoint",
-      ext: name.endsWith(".ppt") ? "PPT" : "PPTX",
+      ext: "PPTX",
       badgeBg: "bg-amber-50",
       badgeText: "text-amber-700",
       borderColor: "border-amber-200",
     };
   }
 
-  // Nén (.zip, .rar, .7z)
+  // 2.6 Nén
   if (
-    name.endsWith(".zip") ||
-    name.endsWith(".rar") ||
-    name.endsWith(".7z") ||
-    raw.includes("zip") ||
-    raw.includes("compressed")
+    mimeHeader.includes("zip") ||
+    mimeHeader.includes("compressed") ||
+    mimeHeader.includes("x-rar")
   ) {
     return {
       category: "ARCHIVE",
       label: "Tệp nén",
-      ext: name.endsWith(".rar") ? "RAR" : "ZIP",
+      ext: "ZIP",
       badgeBg: "bg-purple-50",
       badgeText: "text-purple-700",
       borderColor: "border-purple-200",
     };
   }
 
-  // 2. Hình ảnh (Ảnh chụp minh chứng):
-  // Mặc định hệ thống minh chứng là Hình ảnh (hoặc URL thumbnail Drive / Data URL / tên file không có đuôi tài liệu khác)
-  const isExplicitImage =
-    raw.startsWith("data:image/") ||
-    raw.includes("image") ||
-    raw.includes("thumbnail") ||
-    raw.includes("googleusercontent") ||
-    name.endsWith(".jpg") ||
-    name.endsWith(".jpeg") ||
-    name.endsWith(".png") ||
-    name.endsWith(".webp") ||
-    name.endsWith(".gif") ||
-    name.endsWith(".bmp");
-
-  if (isExplicitImage || !name || !name.includes(".")) {
-    const ext = name.includes(".") ? (name.split(".").pop() || "jpg") : "JPG";
-    return {
-      category: "IMAGE",
-      label: "Hình ảnh",
-      ext: ext.toUpperCase(),
-      badgeBg: "bg-sky-50",
-      badgeText: "text-sky-700",
-      borderColor: "border-sky-200",
-    };
-  }
-
-  // 3. Khác
-  const ext = name.split(".").pop() || "FILE";
+  // 3. Mặc định trong hệ thống minh chứng cuộc thi: Nếu không có đuôi tệp rõ ràng thì coi là Hình ảnh
   return {
-    category: "OTHER",
-    label: "Tệp đính kèm",
-    ext: ext.toUpperCase(),
-    badgeBg: "bg-slate-100",
-    badgeText: "text-slate-700",
-    borderColor: "border-slate-200",
+    category: "IMAGE",
+    label: "Hình ảnh",
+    ext: "JPG",
+    badgeBg: "bg-sky-50",
+    badgeText: "text-sky-700",
+    borderColor: "border-sky-200",
   };
 }
 

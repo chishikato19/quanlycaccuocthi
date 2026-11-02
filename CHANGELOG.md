@@ -6,6 +6,17 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.8.2] - 2026-11-02
+### Sửa Lỗi Nhận Diện Sai Định Dạng Ảnh Thành PDF Do Chuỗi Base64
+- **Khắc Phục Thuật Toán Nhận Diện Định Dạng ([`src/lib/utils.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/lib/utils.ts)):**
+  - **Nguyên nhân:** Chuỗi ảnh Base64 chứa hàng trăm nghìn ký tự ngẫu nhiên. Lệnh kiểm tra `.includes("pdf")` trên toàn bộ chuỗi Base64 vô tình bắt trúng 3 ký tự `pdf` ngẫu nhiên bên trong dữ liệu ảnh JPG, dẫn đến việc hệ thống hiểu nhầm tệp `.jpg` là tài liệu PDF.
+  - **Giải pháp:**
+    1. Ưu tiên tuyệt đối phần đuôi mở rộng của tên tệp (`.jpg`, `.jpeg`, `.png`, `.webp`, `.pdf`, `.docx`, `.xlsx`...).
+    2. Nếu tên tệp không có đuôi, chỉ kiểm tra đúng phần tiêu đề MIME (`data:image/...` hoặc `data:application/pdf...`), tuyệt đối không quét toàn bộ nội dung Base64 khổng lồ.
+  - Sau khi sửa, các tệp ảnh `.jpg` của giáo viên hiển thị trực tiếp hình ảnh rõ nét và đầy đủ các công cụ xoay, phóng to/thu nhỏ trong Hộp xem (Lightbox).
+
+---
+
 ## [1.8.1] - 2026-11-02
 ### Khắc Phục Lỗi Hiển Thị Ảnh Trong Hộp Xem Minh Chứng Báo Cáo Tiến Độ
 - **Cơ chế Nhận Diện Minh Chứng Thông Minh ([`src/lib/utils.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/lib/utils.ts)):**
