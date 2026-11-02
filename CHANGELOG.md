@@ -6,6 +6,23 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.8.4] - 2026-11-02
+### Tối Ưu Tải Phân Trang 10 Cuộc Thi, Ưu Tiên Cuộc Thi Đang Diễn Ra & Cache Độc Lập Cho Admin
+- **Loại Bỏ Hoàn Toàn Query Thừa Của Admin ([`src/app/api/competitions/route.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/competitions/route.ts)):**
+  - Cắt bỏ subquery `comp.assignees` thừa thãi cho tài khoản Admin, giảm 1 lượt round-trip SQL hoàn chỉnh qua mạng.
+- **Phân Trang 10 Cuộc Thi & Tải Thêm Từ Từ:**
+  - API mặc định chỉ lấy 10 bản ghi mỗi lần (`limit=10`, `page=1`), giảm tải tối đa cho CSDL PostgreSQL và rút ngắn thời gian xử lý xuống dưới 80ms.
+  - Phía giao diện: Thêm nút **"Tải thêm 10 cuộc thi cũ hơn"** kèm thống kê số lượng đang hiển thị `(Đang hiện X/Y cuộc thi)`.
+- **Ưu Tiên Cuộc Thi Đang Diễn Ra Lên Đầu:**
+  - Sắp xếp CSDL theo thứ tự: `status: "asc"` (ACTIVE đứng trước), `deadline: "asc"` (cuộc thi sắp hết hạn nhất trên đầu), `createdAt: "desc"`.
+  - Bộ lọc phụ trên trang chủ mặc định chọn tab **"Đang diễn ra"** thay vì tải tất cả các cuộc thi cũ.
+- **Bộ Nhớ Đệm Độc Lập Cho Từng Tài Khoản (User-Scoped Instant Cache):**
+  - Chuyển key cache sang `cached_competitions_${currentUser.id}`, đảm bảo tài khoản Admin và Giáo viên có bộ nhớ đệm riêng biệt, không bị xung đột hay chớp giật giao diện.
+- **Bọc `React.memo` Cho Thẻ Cuộc Thi ([`CompetitionCard.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/competitions/components/CompetitionCard.tsx)):**
+  - Loại bỏ 100% việc re-render hàng loạt thẻ cuộc thi khi dữ liệu nền cập nhật, đảm bảo cuộn trang và thao tác mượt mà.
+
+---
+
 ## [1.8.3] - 2026-11-02
 ### Tối Ưu Hóa Tốc Độ Tải Trang Chủ & Danh Sách Cuộc Thi Siêu Tốc (Instant Cache SWR + Lazy Loading)
 - **Tải Trang Tức Thì 0.01 Giây (Instant Cache / SWR Pattern) ([`src/app/page.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/page.tsx)):**

@@ -39,39 +39,46 @@ export default function HomePage() {
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<"COMPETITIONS" | "TEACHERS">("COMPETITIONS");
-  const [competitionSubFilter, setCompetitionSubFilter] = useState<"ALL" | "ACTIVE" | "OVERDUE" | "DONE">("ALL");
+  // Mặc định hiển thị cuộc thi đang diễn ra trước thay vì tất cả
+  const [competitionSubFilter, setCompetitionSubFilter] = useState<"ACTIVE" | "ALL" | "OVERDUE" | "DONE">("ACTIVE");
 
-  // Data State với Instant Cache (SWR): Khởi tạo ngay từ cache để hiển thị tức thì (0.01s)
-  const [competitions, setCompetitions] = useState<CompetitionDto[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("cached_competitions_list");
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch {}
-    }
-    return [];
-  });
+  // Hàm tạo Cache Key riêng biệt theo từng tài khoản
+  const getCacheKey = useCallback((user: TeacherDto | null) => {
+    return user ? `cached_competitions_${user.id}` : "cached_competitions_guest";
+  }, []);
+
+  // Data State với Instant Cache (SWR) riêng biệt theo từng người dùng
+  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
   const [teachers, setTeachers] = useState<TeacherDto[]>([]);
-  // Nếu đã có cache thì không cần hiện spinner loading toàn màn hình
-  const [isLoadingData, setIsLoadingData] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = localStorage.getItem("cached_competitions_list");
-        if (cached && JSON.parse(cached).length > 0) return false;
-      } catch {}
-    }
-    return true;
-  });
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
+
+  // Phân trang: Mỗi lần tải 10 cuộc thi (tải dần từ từ)
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCompetitions, setTotalCompetitions] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const hasCompetitionsRef = React.useRef(competitions.length > 0);
   React.useEffect(() => {
     hasCompetitionsRef.current = competitions.length > 0;
   }, [competitions.length]);
+
+  // Nạp cache riêng của người dùng ngay khi xác định được phiên đăng nhập
+  useEffect(() => {
+    if (typeof window === "undefined" || !currentUser) return;
+    try {
+      const userCache = localStorage.getItem(getCacheKey(currentUser));
+      if (userCache) {
+        const parsed = JSON.parse(userCache);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCompetitions(parsed);
+          setIsLoadingData(false);
+        }
+      }
+    } catch {}
+  }, [currentUser, getCacheKey]);
 
   // Selected for Report View
   const [viewingReportCompId, setViewingReportCompId] = useState<string | null>(null);
@@ -110,7 +117,7 @@ export default function HomePage() {
     }
   }, []);
 
-  // Tải danh sách cuộc thi (Single Request siêu nhẹ, tối ưu hoá SWR)
+  // Tải danh sách cuộc thi (Phân trang 10 cuộc thi, ưu tiên đang diễn ra)
   const loadData = useCallback(async () => {
     if (!hasCompetitionsRef.current) {
       setIsLoadingData(true);
@@ -118,19 +125,23 @@ export default function HomePage() {
     setIsRefreshing(true);
     try {
       const compUrl = currentUser
-        ? `/api/competitions?teacherId=${currentUser.id}&role=${currentUser.role}`
-        : "/api/competitions";
+        ? `/api/competitions?teacherId=${currentUser.id}&role=${currentUser.role}&page=1&limit=10`
+        : `/api/competitions?page=1&limit=10`;
 
       const res = await fetch(compUrl);
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setCompetitions(json.data);
+        setPage(1);
+        setHasMore(Boolean(json.pagination?.hasMore));
+        setTotalCompetitions(json.pagination?.total ?? json.data.length);
+
         if (json.isDemoMode) {
           setIsDemoMode(true);
         }
-        // Ghi vào bộ nhớ đệm để lần mở sau hiển thị ngay lập tức
+        // Ghi vào bộ nhớ đệm riêng biệt của tài khoản này
         try {
-          localStorage.setItem("cached_competitions_list", JSON.stringify(json.data));
+          localStorage.setItem(getCacheKey(currentUser), JSON.stringify(json.data));
         } catch {}
       }
     } catch (err) {
@@ -139,7 +150,40 @@ export default function HomePage() {
       setIsLoadingData(false);
       setIsRefreshing(false);
     }
-  }, [currentUser]);
+  }, [currentUser, getCacheKey]);
+
+  // Tải thêm 10 cuộc thi tiếp theo (tải từ từ)
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    try {
+      const compUrl = currentUser
+        ? `/api/competitions?teacherId=${currentUser.id}&role=${currentUser.role}&page=${nextPage}&limit=10`
+        : `/api/competitions?page=${nextPage}&limit=10`;
+
+      const res = await fetch(compUrl);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setCompetitions(prev => {
+          const existingIds = new Set(prev.map(c => c.id));
+          const newItems = json.data.filter((c: CompetitionDto) => !existingIds.has(c.id));
+          const combined = [...prev, ...newItems];
+          try {
+            localStorage.setItem(getCacheKey(currentUser), JSON.stringify(combined));
+          } catch {}
+          return combined;
+        });
+        setPage(nextPage);
+        setHasMore(Boolean(json.pagination?.hasMore));
+        setTotalCompetitions(json.pagination?.total ?? (competitions.length + json.data.length));
+      }
+    } catch (err) {
+      console.error("Load more error:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     // Chỉ kích hoạt tải dữ liệu khi phiên đăng nhập đã xác định xong (ngăn chặn Double Fetch)
@@ -356,7 +400,7 @@ export default function HomePage() {
                       activeTab === "COMPETITIONS" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
                     }`}
                   >
-                    {competitions.length}
+                    {totalCompetitions || competitions.length}
                   </span>
                 </button>
 
@@ -403,8 +447,8 @@ export default function HomePage() {
                 <div className="flex flex-wrap items-center justify-between gap-2.5 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200 shadow-xs">
                   <div className="flex flex-wrap items-center gap-1">
                     {[
-                      { key: "ALL", label: `Tất cả (${competitions.length})` },
                       { key: "ACTIVE", label: "Đang diễn ra" },
+                      { key: "ALL", label: `Tất cả (${totalCompetitions || competitions.length})` },
                       { key: "OVERDUE", label: "Quá hạn" },
                       { key: "DONE", label: "Đã nộp bài" },
                     ].map(f => (
@@ -459,33 +503,61 @@ export default function HomePage() {
                     )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                    {filteredCompetitions.map(comp => (
-                      <CompetitionCard
-                        key={comp.id}
-                        competition={comp}
-                        onOpenSubmit={c => {
-                          setSelectedCompForSubmit(c);
-                          setIsSubmitModalOpen(true);
-                        }}
-                        onOpenReport={c => setViewingReportCompId(c.id)}
-                        onEdit={c => {
-                          if (teachers.length === 0) loadTeachers();
-                          setSelectedCompForEdit(c);
-                          setIsCompFormOpen(true);
-                        }}
-                        onExtend={c => {
-                          setSelectedCompForAction(c);
-                          setActionModalMode("EXTEND");
-                        }}
-                        onCloseEarly={c => {
-                          setSelectedCompForAction(c);
-                          setActionModalMode("CLOSE");
-                        }}
-                        onDelete={handleDeleteCompetition}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                      {filteredCompetitions.map(comp => (
+                        <CompetitionCard
+                          key={comp.id}
+                          competition={comp}
+                          onOpenSubmit={c => {
+                            setSelectedCompForSubmit(c);
+                            setIsSubmitModalOpen(true);
+                          }}
+                          onOpenReport={c => setViewingReportCompId(c.id)}
+                          onEdit={c => {
+                            if (teachers.length === 0) loadTeachers();
+                            setSelectedCompForEdit(c);
+                            setIsCompFormOpen(true);
+                          }}
+                          onExtend={c => {
+                            setSelectedCompForAction(c);
+                            setActionModalMode("EXTEND");
+                          }}
+                          onCloseEarly={c => {
+                            setSelectedCompForAction(c);
+                            setActionModalMode("CLOSE");
+                          }}
+                          onDelete={handleDeleteCompetition}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Nút tải thêm 10 cuộc thi tiếp theo */}
+                    {hasMore && (
+                      <div className="pt-4 pb-2 text-center">
+                        <button
+                          type="button"
+                          onClick={handleLoadMore}
+                          disabled={isLoadingMore}
+                          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-sky-700 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 hover:border-sky-300 shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                        >
+                          {isLoadingMore ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin text-sky-600" />
+                              <span>Đang tải thêm cuộc thi...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Tải thêm 10 cuộc thi cũ hơn</span>
+                              <span className="text-[11px] bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded-full">
+                                (Đang hiện {competitions.length}/{totalCompetitions})
+                              </span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

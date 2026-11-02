@@ -8,9 +8,23 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const teacherId = searchParams.get("teacherId");
     const role = searchParams.get("role");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.max(1, parseInt(searchParams.get("limit") || "10", 10));
+    const skip = (page - 1) * limit;
+    const fetchAll = searchParams.get("all") === "true";
 
     if (!isDatabaseConfigured()) {
-      const result = mockCompetitions.map(comp => {
+      const sortedMock = [...mockCompetitions].sort((a, b) => {
+        if (a.status !== b.status) {
+          return a.status === "ACTIVE" ? -1 : 1;
+        }
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      });
+
+      const total = sortedMock.length;
+      const pagedMock = fetchAll ? sortedMock : sortedMock.slice(skip, skip + limit);
+
+      const result = pagedMock.map(comp => {
         const isAssigned = teacherId
           ? comp.assignees.some(a => a.teacherId === teacherId)
           : true;
@@ -41,7 +55,17 @@ export async function GET(req: Request) {
         };
       });
 
-      return NextResponse.json({ success: true, data: result, isDemoMode: true });
+      return NextResponse.json({
+        success: true,
+        data: result,
+        isDemoMode: true,
+        pagination: {
+          page,
+          limit,
+          total,
+          hasMore: !fetchAll && skip + result.length < total,
+        },
+      });
     }
 
     // 1. Lọc trực tiếp ở cấp CSDL: Nếu là USER thường thì chỉ lấy cuộc thi mà giáo viên này được phân công
@@ -52,10 +76,10 @@ export async function GET(req: Request) {
       };
     }
 
-    // 2. Tối ưu include: chỉ đếm tổng số lượng (_count) thay vì kéo toàn bộ hàng nghìn object quan hệ
+    // 2. Tối ưu include: chỉ đếm tổng số lượng (_count), LOẠI BỎ hoàn toàn query thừa assignees
     const includeClause: Record<string, unknown> = {
       creator: {
-        select: { id: true, name: true, driveFolderId: true },
+        select: { id: true, name: true },
       },
       _count: {
         select: {
@@ -80,28 +104,24 @@ export async function GET(req: Request) {
         },
         take: 1,
       };
-
-      // Nếu là Admin, chỉ kiểm tra xem Admin có nằm trong danh sách phân công không (1 bản ghi)
-      if (role !== "USER") {
-        includeClause.assignees = {
-          where: { teacherId },
-          select: { teacherId: true },
-          take: 1,
-        };
-      }
     }
 
+    // Đếm tổng số cuộc thi
+    const total = await db.competition.count({ where: whereClause });
+
+    // Truy vấn phân trang 10 cuộc thi mỗi lần, ưu tiên cuộc thi Đang diễn ra và hạn chót gần nhất
     const competitions = await db.competition.findMany({
       where: whereClause,
-      orderBy: { createdAt: "desc" },
+      orderBy: [
+        { status: "asc" },     // "ACTIVE" đứng trước "CLOSED_EARLY"
+        { deadline: "asc" },   // Cuộc thi đang diễn ra sắp hết hạn hiển thị trước
+        { createdAt: "desc" }, // Mới tạo hiển thị trước
+      ],
       include: includeClause as any,
+      ...(fetchAll ? {} : { skip, take: limit }),
     });
 
     const result = competitions.map((comp: any) => {
-      const isAssigned = teacherId
-        ? (role === "USER" ? true : Boolean(comp.assignees && comp.assignees.length > 0))
-        : true;
-
       const userSub = (teacherId && comp.submissions && comp.submissions.length > 0)
         ? comp.submissions[0]
         : null;
@@ -127,7 +147,7 @@ export async function GET(req: Request) {
         updatedAt: comp.updatedAt.toISOString(),
         totalAssignees: comp._count?.assignees ?? 0,
         totalSubmissions: comp._count?.submissions ?? 0,
-        isAssigned,
+        isAssigned: true,
         userSubmission: userSub
           ? {
               ...userSub,
@@ -137,7 +157,16 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({ success: true, data: result });
+    return NextResponse.json({
+      success: true,
+      data: result,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasMore: !fetchAll && skip + result.length < total,
+      },
+    });
   } catch (error) {
     console.error("Fetch competitions error:", error);
     return NextResponse.json({ success: true, data: mockCompetitions, isDemoMode: true });

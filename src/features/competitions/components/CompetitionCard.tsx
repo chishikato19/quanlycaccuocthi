@@ -28,7 +28,7 @@ interface CompetitionCardProps {
   onDelete: (comp: CompetitionDto) => void;
 }
 
-export const CompetitionCard: React.FC<CompetitionCardProps> = ({
+export const CompetitionCard = React.memo<CompetitionCardProps>(function CompetitionCard({
   competition,
   onOpenSubmit,
   onOpenReport,
@@ -36,7 +36,7 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
   onExtend,
   onCloseEarly,
   onDelete,
-}) => {
+}) {
   const { currentUser, isAdmin } = useAuth();
 
   const overdue = isOverdue(competition.deadline);
@@ -250,4 +250,4 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
       </div>
     </div>
   );
-};
+});
