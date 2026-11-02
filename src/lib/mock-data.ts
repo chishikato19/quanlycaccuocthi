@@ -20,6 +20,7 @@ export interface MockCompetition {
   status: string;
   allowLateSubmission: boolean;
   allowViewProgress: boolean;
+  excludeBghFromReports?: boolean;
   driveFolderId: string | null;
   driveFolderUrl: string | null;
   creatorId: string;

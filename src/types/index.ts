@@ -22,6 +22,7 @@ export interface CompetitionDto {
   status: 'ACTIVE' | 'CLOSED_EARLY';
   allowLateSubmission: boolean;
   allowViewProgress: boolean;
+  excludeBghFromReports?: boolean;
   driveFolderId?: string | null;
   driveFolderUrl?: string | null;
   creatorId: string;

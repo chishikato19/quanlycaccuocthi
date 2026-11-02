@@ -52,6 +52,7 @@ export async function PUT(
       deadline,
       allowLateSubmission,
       allowViewProgress,
+      excludeBghFromReports,
       driveFolderId,
       assigneeIds,
     } = body;
@@ -63,6 +64,7 @@ export async function PUT(
     if (deadline !== undefined) updateData.deadline = new Date(deadline);
     if (allowLateSubmission !== undefined) updateData.allowLateSubmission = Boolean(allowLateSubmission);
     if (allowViewProgress !== undefined) updateData.allowViewProgress = Boolean(allowViewProgress);
+    if (excludeBghFromReports !== undefined) updateData.excludeBghFromReports = Boolean(excludeBghFromReports);
     if (driveFolderId !== undefined) {
       const cleanId = extractDriveFolderId(driveFolderId);
       updateData.driveFolderId = cleanId;

@@ -6,6 +6,19 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.7.0] - 2026-11-02
+### Tùy Chọn Tách Biệt Ban Giám Hiệu Khỏi Danh Sách Đôn Đốc Chung & Tính Năng Nhắc Riêng Kính Cẩn
+- **Tùy chọn khi Tạo / Sửa Cuộc Thi ([`CompetitionFormModal.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/competitions/components/CompetitionFormModal.tsx)):**
+  - Bổ sung tùy chọn: `Không hiển thị Ban Giám Hiệu khi đôn đốc Zalo chung (Nhắc riêng)` (mặc định luôn BẬT).
+  - Tự động lưu thiết lập `excludeBghFromReports` vào cơ sở dữ liệu cho từng cuộc thi.
+- **Tách luồng Đôn đốc & Nhắc nhở trong Báo cáo ([`ReportDetailView.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/reports/components/ReportDetailView.tsx)):**
+  - **Nhắc Zalo chung (`[Copy DS Chưa Nộp]`):** Tự động loại bỏ thành viên Ban Giám Hiệu ra khỏi danh sách đôn đốc chung của trường để giữ phép lịch sự và tế nhị công sở.
+  - **Nhắc riêng Ban Giám Hiệu (`[👑 Nhắc Riêng BGH]`):** Hiển thị nút riêng kèm số lượng thành viên BGH chưa nộp bài. Bấm 1-click để sao chép mẫu tin nhắn kính cẩn, trang trọng gửi riêng cho Hiệu trưởng / Phó Hiệu trưởng.
+  - **Trạng thái hoàn thành BGH:** Nếu Ban Giám Hiệu đã hoàn thành 100%, hệ thống tự động hiển thị huy hiệu xác nhận: `[👑 BGH: Đã nộp 100%]`.
+  - **Đánh dấu nổi bật trong Bảng dữ liệu:** Thầy/Cô thuộc Ban Giám Hiệu được gắn huy hiệu tím kèm vương miện `[👑 Ban Giám Hiệu]` để Văn thư dễ dàng theo dõi.
+
+---
+
 ## [1.6.0] - 2026-11-02
 ### Hỗ Trợ Đa Định Dạng Minh Chứng: Ảnh, Word, PDF, Excel, PowerPoint & ZIP
 - **Nâng cấp Cửa sổ Nộp Minh Chứng ([`UploadProofModal.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/submissions/components/UploadProofModal.tsx)):**

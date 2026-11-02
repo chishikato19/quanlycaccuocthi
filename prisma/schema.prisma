@@ -33,6 +33,7 @@ model Competition {
   status              String   @default("ACTIVE") // ACTIVE | CLOSED_EARLY
   allowLateSubmission Boolean  @default(true)     // Vẫn cho nộp khi quá hạn (có gắn cờ LATE)
   allowViewProgress   Boolean  @default(true)     // Cho phép người dùng xem tiến độ bao nhiêu người đã nộp
+  excludeBghFromReports Boolean @default(true)    // Không đưa Ban Giám Hiệu vào danh sách nhắc nhở Zalo chung
   driveFolderId       String?  // ID thư mục con của cuộc thi này trong thư mục chung
   driveFolderUrl      String?  // Link trực tiếp mở thư mục cuộc thi trên Google Drive
 

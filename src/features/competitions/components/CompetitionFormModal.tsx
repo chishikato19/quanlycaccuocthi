@@ -41,6 +41,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
   const [deadline, setDeadline] = useState("");
   const [allowLateSubmission, setAllowLateSubmission] = useState(true);
   const [allowViewProgress, setAllowViewProgress] = useState(true);
+  const [excludeBghFromReports, setExcludeBghFromReports] = useState(true);
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
 
   // Tùy chọn lưu trữ Google Drive: "DEFAULT" (chung của Super Admin) hoặc "CUSTOM" (Drive riêng của Admin)
@@ -62,6 +63,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
       setDeadline(localISOTime);
       setAllowLateSubmission(competition.allowLateSubmission);
       setAllowViewProgress(competition.allowViewProgress);
+      setExcludeBghFromReports(competition.excludeBghFromReports ?? true);
 
       if (competition.driveFolderId) {
         setDriveOption("CUSTOM");
@@ -87,6 +89,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
       setDeadline(new Date(defaultDate.getTime() - tzOffset).toISOString().slice(0, 16));
       setAllowLateSubmission(true);
       setAllowViewProgress(true);
+      setExcludeBghFromReports(true);
 
       // Cấu hình Drive mặc định cho cuộc thi mới
       const isSuper = currentUser?.role === "SUPER_ADMIN" || currentUser?.phone === "admin";
@@ -132,6 +135,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
         deadline: new Date(deadline).toISOString(),
         allowLateSubmission,
         allowViewProgress,
+        excludeBghFromReports,
         // Nếu chọn CUSTOM thì gửi ID thư mục, nếu chọn DEFAULT thì để null để fallback về Drive chung của Super Admin
         driveFolderId: driveOption === "CUSTOM" && customDriveFolder.trim() ? customDriveFolder.trim() : null,
         creatorId: currentUser.id,
@@ -324,36 +328,63 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
           </div>
 
           {/* Các tùy chọn thiết lập */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-            <label className="flex items-start gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allowLateSubmission}
-                onChange={e => setAllowLateSubmission(e.target.checked)}
-                className="mt-0.5 rounded text-sky-600 focus:ring-sky-500"
-              />
-              <div>
-                <span className="text-xs font-semibold text-slate-800 block">Cho phép nộp khi quá hạn</span>
-                <span className="text-[11px] text-slate-500 block leading-tight">
-                  Vẫn tiếp nhận nhưng tự động gắn cờ "Nộp muộn"
-                </span>
-              </div>
-            </label>
+          <div className="space-y-3 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allowLateSubmission}
+                  onChange={e => setAllowLateSubmission(e.target.checked)}
+                  className="mt-0.5 rounded text-sky-600 focus:ring-sky-500"
+                />
+                <div>
+                  <span className="text-xs font-semibold text-slate-800 block">Cho phép nộp khi quá hạn</span>
+                  <span className="text-[11px] text-slate-500 block leading-tight">
+                    Vẫn tiếp nhận nhưng tự động gắn cờ &quot;Nộp muộn&quot;
+                  </span>
+                </div>
+              </label>
 
-            <label className="flex items-start gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allowViewProgress}
-                onChange={e => setAllowViewProgress(e.target.checked)}
-                className="mt-0.5 rounded text-sky-600 focus:ring-sky-500"
-              />
-              <div>
-                <span className="text-xs font-semibold text-slate-800 block">Hiện tiến độ cho giáo viên</span>
-                <span className="text-[11px] text-slate-500 block leading-tight">
-                  Cho phép người dùng xem bao nhiêu người đã nộp
-                </span>
-              </div>
-            </label>
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allowViewProgress}
+                  onChange={e => setAllowViewProgress(e.target.checked)}
+                  className="mt-0.5 rounded text-sky-600 focus:ring-sky-500"
+                />
+                <div>
+                  <span className="text-xs font-semibold text-slate-800 block">Hiện tiến độ cho giáo viên</span>
+                  <span className="text-[11px] text-slate-500 block leading-tight">
+                    Cho phép người dùng xem bao nhiêu người đã nộp
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {/* Tùy chọn Ban Giám Hiệu */}
+            <div className="pt-2.5 border-t border-slate-200/80">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={excludeBghFromReports}
+                  onChange={e => setExcludeBghFromReports(e.target.checked)}
+                  className="mt-0.5 rounded text-purple-600 focus:ring-purple-500"
+                />
+                <div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-bold text-purple-950">
+                      Không hiển thị Ban Giám Hiệu khi đôn đốc Zalo chung
+                    </span>
+                    <span className="text-[10px] bg-purple-100 text-purple-700 font-semibold px-2 py-0.2 rounded-full border border-purple-200">
+                      Nhắc riêng
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">
+                    Thành viên Ban Giám Hiệu sẽ được lọc ra khỏi tin nhắn nhắc nhở chung của toàn trường để đảm bảo tính tế nhị, và hệ thống sẽ cung cấp nút mẫu tin nhắn kính cẩn để nhắc riêng.
+                  </span>
+                </div>
+              </label>
+            </div>
           </div>
 
           {/* Chọn người thực hiện (Có chọn nhanh theo tổ chuyên môn) */}

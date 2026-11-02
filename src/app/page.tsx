@@ -462,7 +462,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400 mt-auto">
-        Hệ Thống Báo Cáo Cuộc Thi &bull; Tự động lưu Google Drive &bull; Phiên bản 1.6.0
+        Hệ Thống Báo Cáo Cuộc Thi &bull; Tự động lưu Google Drive &bull; Phiên bản 1.7.0
       </footer>
 
       {/* MODALS */}

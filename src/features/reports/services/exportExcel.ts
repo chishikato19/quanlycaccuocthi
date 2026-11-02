@@ -6,6 +6,7 @@ export interface ReportRowData {
   teacherId: string;
   teacherName: string;
   department: string;
+  isBgh?: boolean;
   phone?: string;
   isSubmitted: boolean;
   submissionStatus: string; // 'ĐÚNG HẠN' | 'NỘP MUỘN' | 'CHƯA NỘP'
