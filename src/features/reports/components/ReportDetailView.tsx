@@ -77,14 +77,15 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
 
         const validLightboxItems: LightboxItem[] = [];
         for (const r of json.data.rows) {
-          if (r.isSubmitted && (r.localImageUrl || r.driveFileUrl)) {
+          if (r.isSubmitted) {
             validLightboxItems.push({
               id: r.teacherId,
+              submissionId: r.submissionId,
               teacherName: r.teacherName,
               department: r.department,
               status: r.submissionStatus === "NỘP MUỘN" ? "LATE" : "ON_TIME",
               submittedAt: r.submitTime || new Date().toISOString(),
-              imageUrl: r.localImageUrl || r.driveFileUrl || "",
+              imageUrl: r.driveFileUrl || "",
               driveFileUrl: r.driveFileUrl,
               imageFileName: r.imageFileName,
               note: r.note,
@@ -523,8 +524,9 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
         </div>
       </div>
 
-      {/* Lightbox Modal Xem Ảnh Nhanh */}
+      {/* Lightbox Modal Xem Ảnh Nhanh (Lazy Loading Siêu Tốc) */}
       <EvidenceLightbox
+        competitionId={competitionId}
         items={lightboxItems}
         currentIndex={lightboxIndex}
         isOpen={isLightboxOpen}

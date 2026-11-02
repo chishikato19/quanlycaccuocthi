@@ -11,6 +11,6 @@ export async function GET() {
     hasPostgresUrl: Boolean(process.env.POSTGRES_URL),
     hasDatabaseUrlUnpooled: Boolean(process.env.DATABASE_URL_UNPOOLED),
     databaseType: isDbReady ? "PostgreSQL (Cloud Database)" : "Demo In-Memory Mode",
-    version: "1.7.0",
+    version: "1.8.0",
   });
 }

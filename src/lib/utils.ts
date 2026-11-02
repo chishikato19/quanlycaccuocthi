@@ -92,6 +92,18 @@ export function getFileTypeInfo(fileName?: string | null, dataUrlOrMime?: string
   const name = (fileName || "").toLowerCase();
   const raw = (dataUrlOrMime || "").toLowerCase();
 
+  // Mặc định nếu chưa có tên file và chưa có dataUrl: xem như Ảnh minh chứng
+  if (!name && !raw) {
+    return {
+      category: "IMAGE",
+      label: "Hình ảnh",
+      ext: "JPG",
+      badgeBg: "bg-sky-50",
+      badgeText: "text-sky-700",
+      borderColor: "border-sky-200",
+    };
+  }
+
   // 1. Hình ảnh
   if (
     raw.startsWith("data:image/") ||

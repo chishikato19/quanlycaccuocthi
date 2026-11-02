@@ -16,22 +16,27 @@ import {
   File as FileIcon,
   FileType as FileTypeIcon,
   Download,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { getFileTypeInfo } from "@/lib/utils";
 
 export interface LightboxItem {
-  id: string;
+  id: string; // teacherId
+  submissionId?: string | null;
   teacherName: string;
   department: string;
   status: "ON_TIME" | "LATE";
   submittedAt: string;
-  imageUrl: string;
+  imageUrl?: string;
   driveFileUrl?: string | null;
   imageFileName?: string | null;
   note?: string | null;
 }
 
 interface EvidenceLightboxProps {
+  competitionId?: string;
   items: LightboxItem[];
   currentIndex: number;
   isOpen: boolean;
@@ -40,6 +45,7 @@ interface EvidenceLightboxProps {
 }
 
 export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
+  competitionId,
   items,
   currentIndex,
   isOpen,
@@ -49,7 +55,13 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
   const [rotation, setRotation] = useState(0);
   const [scale, setScale] = useState(1);
 
+  // Bộ nhớ đệm minh chứng đã tải theo yêu cầu (Lazy Loading Cache)
+  const [evidenceCache, setEvidenceCache] = useState<Record<string, string>>({});
+  const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
+  const [evidenceError, setEvidenceError] = useState("");
+
   const currentItem = items[currentIndex];
+  const effectiveImageUrl = (currentItem && evidenceCache[currentItem.id]) || currentItem?.imageUrl || "";
 
   const resetTransform = useCallback(() => {
     setRotation(0);
@@ -74,6 +86,58 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
     resetTransform();
   }, [currentIndex, resetTransform]);
 
+  // Cơ chế Tải Minh Chứng Theo Nhu Cầu (Lazy Loading on demand)
+  useEffect(() => {
+    if (!isOpen || !currentItem) return;
+
+    // Nếu đã có ảnh trong cache hoặc đã có url
+    if (evidenceCache[currentItem.id] || currentItem.imageUrl) {
+      setIsLoadingEvidence(false);
+      setEvidenceError("");
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingEvidence(true);
+    setEvidenceError("");
+
+    const fetchEvidence = async () => {
+      try {
+        const query = currentItem.submissionId
+          ? `submissionId=${currentItem.submissionId}`
+          : `competitionId=${competitionId || ""}&teacherId=${currentItem.id}`;
+
+        const res = await fetch(`/api/submissions/evidence?${query}`);
+        const json = await res.json();
+
+        if (isMounted) {
+          if (res.ok && json.success && json.data.imageUrl) {
+            setEvidenceCache(prev => ({
+              ...prev,
+              [currentItem.id]: json.data.imageUrl,
+            }));
+          } else {
+            setEvidenceError(json.error || "Không tìm thấy file minh chứng");
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setEvidenceError("Lỗi kết nối máy chủ khi tải minh chứng");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingEvidence(false);
+        }
+      }
+    };
+
+    fetchEvidence();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, currentItem, competitionId, evidenceCache]);
+
   // Hỗ trợ phím tắt bàn phím
   useEffect(() => {
     if (!isOpen) return;
@@ -90,7 +154,7 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
 
   if (!isOpen || !currentItem) return null;
 
-  const fileInfo = getFileTypeInfo(currentItem.imageFileName, currentItem.imageUrl);
+  const fileInfo = getFileTypeInfo(currentItem.imageFileName, effectiveImageUrl);
   const isImage = fileInfo.category === "IMAGE";
   const safeFileName = currentItem.imageFileName || `minh_chung_${currentItem.teacherName}.${fileInfo.ext.toLowerCase()}`;
 
@@ -157,15 +221,17 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
         {/* Thanh công cụ xem file */}
         <div className="flex items-center justify-between sm:justify-end gap-1.5 pt-1 sm:pt-0 border-t border-slate-800 sm:border-0">
           {/* Nút Tải Về Máy */}
-          <a
-            href={currentItem.imageUrl}
-            download={safeFileName}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-800/50 rounded-lg transition-colors"
-            title="Tải tệp này về máy"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="text-[11px]">Tải về</span>
-          </a>
+          {effectiveImageUrl && (
+            <a
+              href={effectiveImageUrl}
+              download={safeFileName}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-800/50 rounded-lg transition-colors"
+              title="Tải tệp này về máy"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="text-[11px]">Tải về</span>
+            </a>
+          )}
 
           {/* Nút Mở Google Drive */}
           {currentItem.driveFileUrl && (
@@ -182,7 +248,7 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
           )}
 
           {/* Các nút xoay/phóng to chỉ dành cho Ảnh */}
-          {isImage && (
+          {isImage && effectiveImageUrl && (
             <div className="flex items-center gap-1 ml-auto sm:ml-0">
               <button
                 type="button"
@@ -239,12 +305,40 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
           </button>
         )}
 
-        {/* Khung hiển thị: Phân biệt Ảnh và Tài Liệu */}
-        {isImage ? (
+        {/* Khung hiển thị: Đang tải, Lỗi, Ảnh hoặc Thẻ Tài Liệu */}
+        {isLoadingEvidence ? (
+          <div className="flex flex-col items-center justify-center p-8 bg-slate-900/90 border border-slate-800 rounded-3xl space-y-3.5 shadow-2xl animate-in fade-in">
+            <Loader2 className="w-10 h-10 text-sky-400 animate-spin" />
+            <div className="text-center">
+              <p className="text-xs sm:text-sm font-semibold text-white">
+                Đang tải minh chứng của {currentItem.teacherName}...
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Tải siêu tốc riêng lẻ theo yêu cầu &bull; Tiết kiệm dữ liệu
+              </p>
+            </div>
+          </div>
+        ) : evidenceError ? (
+          <div className="flex flex-col items-center justify-center p-8 bg-slate-900/90 border border-slate-800 rounded-3xl space-y-3 shadow-2xl text-center max-w-sm animate-in fade-in">
+            <AlertCircle className="w-10 h-10 text-rose-400" />
+            <p className="text-xs text-rose-200">{evidenceError}</p>
+            {currentItem.driveFileUrl && (
+              <a
+                href={currentItem.driveFileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Mở Trên Google Drive</span>
+              </a>
+            )}
+          </div>
+        ) : isImage && effectiveImageUrl ? (
           <div className="max-w-full max-h-full flex items-center justify-center transition-transform duration-200">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={currentItem.imageUrl}
+              src={effectiveImageUrl}
               alt={`Minh chứng của ${currentItem.teacherName}`}
               className="max-h-[70vh] sm:max-h-[75vh] max-w-[90vw] object-contain rounded-lg shadow-2xl transition-all duration-150"
               style={{
@@ -273,19 +367,21 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
               {/* Tải về */}
-              <a
-                href={currentItem.imageUrl}
-                download={safeFileName}
-                className="w-full sm:w-auto px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 transition-all min-h-[42px]"
-              >
-                <Download className="w-4 h-4" />
-                <span>Tải Tệp Về Máy</span>
-              </a>
+              {effectiveImageUrl && (
+                <a
+                  href={effectiveImageUrl}
+                  download={safeFileName}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 transition-all min-h-[42px]"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Tải Tệp Về Máy</span>
+                </a>
+              )}
 
               {/* Mở xem PDF hoặc link */}
-              {fileInfo.category === "PDF" && (
+              {fileInfo.category === "PDF" && effectiveImageUrl && (
                 <a
-                  href={currentItem.imageUrl}
+                  href={effectiveImageUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full sm:w-auto px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all min-h-[42px]"

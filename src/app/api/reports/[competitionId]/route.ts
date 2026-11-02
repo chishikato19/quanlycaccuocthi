@@ -90,10 +90,15 @@ export async function GET(
           ],
         },
         submissions: {
-          include: {
-            teacher: {
-              select: { id: true, name: true, department: true },
-            },
+          select: {
+            id: true,
+            teacherId: true,
+            status: true,
+            submittedAt: true,
+            driveFileUrl: true,
+            imageFileName: true,
+            note: true,
+            reviewStatus: true,
           },
         },
       },
@@ -130,6 +135,7 @@ export async function GET(
 
       return {
         stt: index + 1,
+        submissionId: sub?.id || null,
         teacherId: a.teacherId,
         teacherName: a.teacher.name,
         department: a.teacher.department,
@@ -139,7 +145,6 @@ export async function GET(
         submissionStatus,
         submitTime: sub ? sub.submittedAt.toISOString() : null,
         driveFileUrl: sub?.driveFileUrl || null,
-        localImageUrl: sub?.localImageUrl || null,
         imageFileName: sub?.imageFileName || null,
         note: sub?.note || "",
         reviewStatus: sub?.reviewStatus || "NOT_SUBMITTED",

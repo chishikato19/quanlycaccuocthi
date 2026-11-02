@@ -3,6 +3,7 @@ import { formatDateTime } from "@/lib/utils";
 
 export interface ReportRowData {
   stt: number;
+  submissionId?: string | null;
   teacherId: string;
   teacherName: string;
   department: string;

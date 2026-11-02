@@ -64,7 +64,6 @@ export async function GET(req: Request) {
             status: true,
             submittedAt: true,
             driveFileUrl: true,
-            localImageUrl: true,
             note: true,
             reviewStatus: true,
           },
