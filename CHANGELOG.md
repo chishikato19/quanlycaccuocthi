@@ -6,6 +6,20 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.8.1] - 2026-11-02
+### Khắc Phục Lỗi Hiển Thị Ảnh Trong Hộp Xem Minh Chứng Báo Cáo Tiến Độ
+- **Cơ chế Nhận Diện Minh Chứng Thông Minh ([`src/lib/utils.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/lib/utils.ts)):**
+  - Cải tiến hàm `getFileTypeInfo`: Đối với các minh chứng nộp trước đó chưa có đuôi tệp rõ ràng hoặc dùng link Google Drive, hệ thống mặc định coi là **Hình ảnh minh chứng** thay vì tệp khác, kích hoạt đúng chế độ hiển thị ảnh trong Lightbox.
+  - Hỗ trợ nhận diện các tiền tố ảnh, MIME image, thumbnail Drive và Data URL.
+- **Trích xuất ID Tệp Tin Tự Động ([`src/lib/google-drive-shared.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/lib/google-drive-shared.ts)):**
+  - Bổ sung hàm `extractDriveFileId` nhận diện định dạng link Google Drive dạng `/file/d/{id}` và `?id={id}`, giúp API tạo thumbnail phân giải cao (`https://drive.google.com/thumbnail?id={id}&sz=w1600`) cho các minh chứng lưu trên Drive.
+- **Xử Lý Lỗi Tải Ảnh Trực Tiếp & Fallback An Toàn ([`EvidenceLightbox.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/submissions/components/EvidenceLightbox.tsx)):**
+  - Thêm cờ `imageLoadError`: Nếu ảnh bị chặn bởi quyền hạn riêng tư của Google Drive hoặc chính sách bảo mật trình duyệt, giao diện tự động chuyển sang thẻ thông tin chuyên nghiệp với nút bấm **"Mở Trên Drive"** và **"Tải Về Máy"**, không gây vỡ giao diện hay treo màn hình.
+- **Đảm bảo toàn vẹn dữ liệu:**
+  - 100% dữ liệu cuộc thi và minh chứng đã nộp trong PostgreSQL và Google Drive được bảo toàn nguyên vẹn.
+
+---
+
 ## [1.8.0] - 2026-11-02
 ### Tối Ưu Hóa Tải Báo Cáo Siêu Tốc (Lazy Loading & On-Demand Evidence Fetching)
 - **Giảm 99.97% Dung Lượng Gói Tin Báo Cáo ([`/api/reports/[competitionId]`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/reports/[competitionId]/route.ts)):**

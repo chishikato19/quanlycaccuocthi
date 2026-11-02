@@ -92,41 +92,9 @@ export function getFileTypeInfo(fileName?: string | null, dataUrlOrMime?: string
   const name = (fileName || "").toLowerCase();
   const raw = (dataUrlOrMime || "").toLowerCase();
 
-  // Mặc định nếu chưa có tên file và chưa có dataUrl: xem như Ảnh minh chứng
-  if (!name && !raw) {
-    return {
-      category: "IMAGE",
-      label: "Hình ảnh",
-      ext: "JPG",
-      badgeBg: "bg-sky-50",
-      badgeText: "text-sky-700",
-      borderColor: "border-sky-200",
-    };
-  }
-
-  // 1. Hình ảnh
-  if (
-    raw.startsWith("data:image/") ||
-    name.endsWith(".jpg") ||
-    name.endsWith(".jpeg") ||
-    name.endsWith(".png") ||
-    name.endsWith(".webp") ||
-    name.endsWith(".gif") ||
-    name.endsWith(".bmp")
-  ) {
-    const ext = name.split(".").pop() || "jpg";
-    return {
-      category: "IMAGE",
-      label: "Hình ảnh",
-      ext: ext.toUpperCase(),
-      badgeBg: "bg-sky-50",
-      badgeText: "text-sky-700",
-      borderColor: "border-sky-200",
-    };
-  }
-
-  // 2. PDF
-  if (raw.includes("pdf") || name.endsWith(".pdf")) {
+  // 1. Kiểm tra tài liệu chuyên biệt trước:
+  // PDF (.pdf)
+  if (name.endsWith(".pdf") || raw.includes("application/pdf") || raw.includes("pdf")) {
     return {
       category: "PDF",
       label: "Tài liệu PDF",
@@ -137,12 +105,12 @@ export function getFileTypeInfo(fileName?: string | null, dataUrlOrMime?: string
     };
   }
 
-  // 3. Word (.doc, .docx)
+  // Word (.doc, .docx)
   if (
-    raw.includes("word") ||
-    raw.includes("officedocument.wordprocessingml") ||
     name.endsWith(".doc") ||
-    name.endsWith(".docx")
+    name.endsWith(".docx") ||
+    raw.includes("word") ||
+    raw.includes("officedocument.wordprocessingml")
   ) {
     return {
       category: "WORD",
@@ -154,15 +122,15 @@ export function getFileTypeInfo(fileName?: string | null, dataUrlOrMime?: string
     };
   }
 
-  // 4. Excel (.xls, .xlsx, .csv)
+  // Excel (.xls, .xlsx, .csv)
   if (
+    name.endsWith(".xls") ||
+    name.endsWith(".xlsx") ||
+    name.endsWith(".csv") ||
     raw.includes("sheet") ||
     raw.includes("excel") ||
     raw.includes("spreadsheetml") ||
-    raw.includes("csv") ||
-    name.endsWith(".xls") ||
-    name.endsWith(".xlsx") ||
-    name.endsWith(".csv")
+    raw.includes("csv")
   ) {
     return {
       category: "EXCEL",
@@ -174,12 +142,12 @@ export function getFileTypeInfo(fileName?: string | null, dataUrlOrMime?: string
     };
   }
 
-  // 5. PowerPoint (.ppt, .pptx)
+  // PowerPoint (.ppt, .pptx)
   if (
-    raw.includes("presentation") ||
-    raw.includes("powerpoint") ||
     name.endsWith(".ppt") ||
-    name.endsWith(".pptx")
+    name.endsWith(".pptx") ||
+    raw.includes("presentation") ||
+    raw.includes("powerpoint")
   ) {
     return {
       category: "POWERPOINT",
@@ -191,13 +159,13 @@ export function getFileTypeInfo(fileName?: string | null, dataUrlOrMime?: string
     };
   }
 
-  // 6. Nén (.zip, .rar, .7z)
+  // Nén (.zip, .rar, .7z)
   if (
-    raw.includes("zip") ||
-    raw.includes("compressed") ||
     name.endsWith(".zip") ||
     name.endsWith(".rar") ||
-    name.endsWith(".7z")
+    name.endsWith(".7z") ||
+    raw.includes("zip") ||
+    raw.includes("compressed")
   ) {
     return {
       category: "ARCHIVE",
@@ -209,7 +177,33 @@ export function getFileTypeInfo(fileName?: string | null, dataUrlOrMime?: string
     };
   }
 
-  // 7. Khác
+  // 2. Hình ảnh (Ảnh chụp minh chứng):
+  // Mặc định hệ thống minh chứng là Hình ảnh (hoặc URL thumbnail Drive / Data URL / tên file không có đuôi tài liệu khác)
+  const isExplicitImage =
+    raw.startsWith("data:image/") ||
+    raw.includes("image") ||
+    raw.includes("thumbnail") ||
+    raw.includes("googleusercontent") ||
+    name.endsWith(".jpg") ||
+    name.endsWith(".jpeg") ||
+    name.endsWith(".png") ||
+    name.endsWith(".webp") ||
+    name.endsWith(".gif") ||
+    name.endsWith(".bmp");
+
+  if (isExplicitImage || !name || !name.includes(".")) {
+    const ext = name.includes(".") ? (name.split(".").pop() || "jpg") : "JPG";
+    return {
+      category: "IMAGE",
+      label: "Hình ảnh",
+      ext: ext.toUpperCase(),
+      badgeBg: "bg-sky-50",
+      badgeText: "text-sky-700",
+      borderColor: "border-sky-200",
+    };
+  }
+
+  // 3. Khác
   const ext = name.split(".").pop() || "FILE";
   return {
     category: "OTHER",

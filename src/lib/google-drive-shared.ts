@@ -32,6 +32,45 @@ export function extractDriveFolderId(input?: string | null): string | null {
 }
 
 /**
+ * Trích xuất ID tệp tin từ link Google Drive (/file/d/ID hoặc /d/ID hoặc ?id=ID)
+ */
+export function extractDriveFileId(input?: string | null): string | null {
+  if (!input || !input.trim()) return null;
+  const trimmed = input.trim();
+
+  // URL dạng /file/d/ID
+  const fileMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch && fileMatch[1]) {
+    return fileMatch[1];
+  }
+
+  // URL dạng /d/ID
+  const dMatch = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (dMatch && dMatch[1]) {
+    return dMatch[1];
+  }
+
+  // URL dạng ?id=ID hoặc &id=ID
+  const idParamMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idParamMatch && idParamMatch[1]) {
+    return idParamMatch[1];
+  }
+
+  // URL dạng /folders/ID
+  const folderMatch = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (folderMatch && folderMatch[1]) {
+    return folderMatch[1];
+  }
+
+  // ID thô
+  if (!trimmed.includes("/") && !trimmed.includes(".") && !trimmed.startsWith("{")) {
+    return trimmed;
+  }
+
+  return null;
+}
+
+/**
  * Phân tích cấu hình Google Drive từ chuỗi lưu trong CSDL
  */
 export function parseDriveConfig(raw?: string | null): ParsedDriveConfig {

@@ -59,9 +59,20 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
   const [evidenceCache, setEvidenceCache] = useState<Record<string, string>>({});
   const [isLoadingEvidence, setIsLoadingEvidence] = useState(false);
   const [evidenceError, setEvidenceError] = useState("");
+  const [imageLoadError, setImageLoadError] = useState(false);
 
   const currentItem = items[currentIndex];
-  const effectiveImageUrl = (currentItem && evidenceCache[currentItem.id]) || currentItem?.imageUrl || "";
+
+  // Chỉ dùng currentItem.imageUrl nếu nó là Data URL hoặc direct image link
+  const isDirectImage = Boolean(
+    currentItem?.imageUrl && (
+      currentItem.imageUrl.startsWith("data:") ||
+      currentItem.imageUrl.startsWith("blob:") ||
+      currentItem.imageUrl.includes("unsplash.com")
+    )
+  );
+
+  const effectiveImageUrl = (currentItem && evidenceCache[currentItem.id]) || (isDirectImage && currentItem ? currentItem.imageUrl : "");
 
   const resetTransform = useCallback(() => {
     setRotation(0);
@@ -84,14 +95,15 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
 
   useEffect(() => {
     resetTransform();
+    setImageLoadError(false);
   }, [currentIndex, resetTransform]);
 
   // Cơ chế Tải Minh Chứng Theo Nhu Cầu (Lazy Loading on demand)
   useEffect(() => {
     if (!isOpen || !currentItem) return;
 
-    // Nếu đã có ảnh trong cache hoặc đã có url
-    if (evidenceCache[currentItem.id] || currentItem.imageUrl) {
+    // Nếu đã có ảnh trong cache hoặc đã có direct image url
+    if (evidenceCache[currentItem.id] || isDirectImage) {
       setIsLoadingEvidence(false);
       setEvidenceError("");
       return;
@@ -103,11 +115,12 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
 
     const fetchEvidence = async () => {
       try {
-        const query = currentItem.submissionId
-          ? `submissionId=${currentItem.submissionId}`
-          : `competitionId=${competitionId || ""}&teacherId=${currentItem.id}`;
+        const queryParams = new URLSearchParams();
+        if (competitionId) queryParams.set("competitionId", competitionId);
+        if (currentItem.id) queryParams.set("teacherId", currentItem.id);
+        if (currentItem.submissionId) queryParams.set("submissionId", currentItem.submissionId);
 
-        const res = await fetch(`/api/submissions/evidence?${query}`);
+        const res = await fetch(`/api/submissions/evidence?${queryParams.toString()}`);
         const json = await res.json();
 
         if (isMounted) {
@@ -136,7 +149,7 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, currentItem, competitionId, evidenceCache]);
+  }, [isOpen, currentItem, competitionId, evidenceCache, isDirectImage]);
 
   // Hỗ trợ phím tắt bàn phím
   useEffect(() => {
@@ -334,17 +347,54 @@ export const EvidenceLightbox: React.FC<EvidenceLightboxProps> = ({
               </a>
             )}
           </div>
-        ) : isImage && effectiveImageUrl ? (
+        ) : isImage && effectiveImageUrl && !imageLoadError ? (
           <div className="max-w-full max-h-full flex items-center justify-center transition-transform duration-200">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={effectiveImageUrl}
               alt={`Minh chứng của ${currentItem.teacherName}`}
+              onError={() => setImageLoadError(true)}
               className="max-h-[70vh] sm:max-h-[75vh] max-w-[90vw] object-contain rounded-lg shadow-2xl transition-all duration-150"
               style={{
                 transform: `scale(${scale}) rotate(${rotation}deg)`,
               }}
             />
+          </div>
+        ) : isImage && (imageLoadError || !effectiveImageUrl) ? (
+          /* Trường hợp ảnh không hiển thị được trực tiếp do hạn chế bảo mật Drive */
+          <div className="flex flex-col items-center justify-center p-6 sm:p-8 bg-slate-900/90 border border-slate-800 rounded-3xl space-y-4 shadow-2xl text-center max-w-sm animate-in fade-in">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Minh chứng lưu trên Google Drive</p>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                Ảnh minh chứng của <b>{currentItem.teacherName}</b> đã được lưu trữ an toàn trên Google Drive. Bạn có thể mở xem trực tiếp trên Drive hoặc tải về máy.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full pt-1">
+              {currentItem.driveFileUrl && (
+                <a
+                  href={currentItem.driveFileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full px-4 py-2.5 bg-purple-700 hover:bg-purple-600 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-lg"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Mở Trên Drive</span>
+                </a>
+              )}
+              {effectiveImageUrl && (
+                <a
+                  href={effectiveImageUrl}
+                  download={safeFileName}
+                  className="w-full px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Tải Về Máy</span>
+                </a>
+              )}
+            </div>
           </div>
         ) : (
           /* Khung hiển thị Thẻ Tài Liệu (Word, PDF, Excel...) */

@@ -85,7 +85,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
               department: r.department,
               status: r.submissionStatus === "NỘP MUỘN" ? "LATE" : "ON_TIME",
               submittedAt: r.submitTime || new Date().toISOString(),
-              imageUrl: r.driveFileUrl || "",
+              imageUrl: "",
               driveFileUrl: r.driveFileUrl,
               imageFileName: r.imageFileName,
               note: r.note,

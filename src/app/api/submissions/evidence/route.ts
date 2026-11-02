@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isDatabaseConfigured, mockCompetitions } from "@/lib/mock-data";
+import { extractDriveFolderId, extractDriveFileId } from "@/lib/google-drive-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -41,20 +42,7 @@ export async function GET(req: Request) {
     // 2. Cơ sở dữ liệu Cloud PostgreSQL (Chỉ đọc đúng 1 bản ghi yêu cầu)
     let submission = null;
 
-    if (submissionId) {
-      submission = await db.submission.findUnique({
-        where: { id: submissionId },
-        select: {
-          id: true,
-          competitionId: true,
-          teacherId: true,
-          localImageUrl: true,
-          driveFileUrl: true,
-          imageFileName: true,
-          note: true,
-        },
-      });
-    } else if (competitionId && teacherId) {
+    if (competitionId && teacherId) {
       submission = await db.submission.findUnique({
         where: {
           competitionId_teacherId: {
@@ -68,6 +56,23 @@ export async function GET(req: Request) {
           teacherId: true,
           localImageUrl: true,
           driveFileUrl: true,
+          driveFileId: true,
+          imageFileName: true,
+          note: true,
+        },
+      });
+    }
+
+    if (!submission && submissionId) {
+      submission = await db.submission.findUnique({
+        where: { id: submissionId },
+        select: {
+          id: true,
+          competitionId: true,
+          teacherId: true,
+          localImageUrl: true,
+          driveFileUrl: true,
+          driveFileId: true,
           imageFileName: true,
           note: true,
         },
@@ -81,10 +86,14 @@ export async function GET(req: Request) {
       );
     }
 
+    const driveId = submission.driveFileId || extractDriveFileId(submission.driveFileUrl) || extractDriveFolderId(submission.driveFileUrl);
+    const driveThumbnailUrl = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1600` : null;
+    const finalImageUrl = submission.localImageUrl || driveThumbnailUrl || submission.driveFileUrl || "";
+
     return NextResponse.json({
       success: true,
       data: {
-        imageUrl: submission.localImageUrl || submission.driveFileUrl || "",
+        imageUrl: finalImageUrl,
         driveFileUrl: submission.driveFileUrl || null,
         imageFileName: submission.imageFileName || null,
         note: submission.note || "",
