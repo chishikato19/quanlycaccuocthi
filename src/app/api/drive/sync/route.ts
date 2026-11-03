@@ -103,6 +103,7 @@ export async function POST(req: Request) {
             data: {
               driveFileId: uploadRes.fileId,
               driveFileUrl: uploadRes.driveUrl,
+              localImageUrl: null, // Giải phóng Base64 khỏi PostgreSQL và chặn upload trùng lặp
             },
           });
 

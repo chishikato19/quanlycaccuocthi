@@ -19,25 +19,28 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedDepartments, setExpandedDepartments] = useState<Record<string, boolean>>({});
 
-  // Nhóm giáo viên theo tổ bộ môn (Loại bỏ tài khoản Super Admin)
+  // Lọc danh sách giáo viên hợp lệ (Loại bỏ hoàn toàn tài khoản Super Admin)
+  const eligibleTeachers = useMemo(() => {
+    return teachers.filter(
+      (t) =>
+        t.role !== "SUPER_ADMIN" &&
+        t.phone !== "admin" &&
+        t.department !== "Hệ Thống" &&
+        !t.name.toLowerCase().includes("quản trị") &&
+        !t.name.toLowerCase().includes("super admin")
+    );
+  }, [teachers]);
+
+  // Nhóm giáo viên theo tổ bộ môn
   const departmentGroups = useMemo(() => {
     const groups: Record<string, TeacherDto[]> = {};
-    for (const t of teachers) {
-      if (
-        t.role === "SUPER_ADMIN" ||
-        t.phone === "admin" ||
-        t.department === "Hệ Thống" ||
-        t.name.toLowerCase().includes("quản trị") ||
-        t.name.toLowerCase().includes("super admin")
-      ) {
-        continue;
-      }
+    for (const t of eligibleTeachers) {
       const dept = t.department || "Khác";
       if (!groups[dept]) groups[dept] = [];
       groups[dept].push(t);
     }
     return groups;
-  }, [teachers]);
+  }, [eligibleTeachers]);
 
   const departments = Object.keys(departmentGroups).sort();
 
@@ -80,7 +83,7 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
 
   // Chọn tất cả toàn trường
   const selectAll = () => {
-    onChange(teachers.map(t => t.id));
+    onChange(eligibleTeachers.map(t => t.id));
   };
 
   // Bỏ chọn tất cả
@@ -95,7 +98,7 @@ export const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({
         <div className="flex items-center gap-2">
           <Users className="w-4 h-4 text-sky-600" />
           <span className="text-xs font-semibold text-slate-700">
-            Đã chọn: <span className="text-sky-600 text-sm font-bold">{selectedTeacherIds.length}</span> / {teachers.length} người
+            Đã chọn: <span className="text-sky-600 text-sm font-bold">{selectedTeacherIds.length}</span> / {eligibleTeachers.length} người
           </span>
         </div>
 

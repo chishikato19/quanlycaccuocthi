@@ -48,6 +48,7 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
   const [driveOption, setDriveOption] = useState<"DEFAULT" | "CUSTOM">("DEFAULT");
   const [customDriveFolder, setCustomDriveFolder] = useState("");
 
+  const [isLoadingAssignees, setIsLoadingAssignees] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -73,10 +74,28 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
         setCustomDriveFolder("");
       }
 
-      if (competition.assignees) {
+      if (competition.assignees && competition.assignees.length > 0) {
         setSelectedTeacherIds(competition.assignees.map(a => a.teacherId));
       } else {
-        setSelectedTeacherIds(teachers.map(t => t.id));
+        // Tải chi tiết người được gán từ API để bảo toàn đúng danh sách khi sửa cuộc thi
+        setIsLoadingAssignees(true);
+        fetch(`/api/competitions/${competition.id}`)
+          .then(res => res.json())
+          .then(json => {
+            if (json.success && json.data?.assignees && Array.isArray(json.data.assignees)) {
+              const assignedIds = json.data.assignees.map((a: { teacherId: string }) => a.teacherId);
+              setSelectedTeacherIds(assignedIds);
+            } else {
+              setSelectedTeacherIds(teachers.map(t => t.id));
+            }
+          })
+          .catch(err => {
+            console.error("Lỗi tải chi tiết người được gán:", err);
+            setSelectedTeacherIds(teachers.map(t => t.id));
+          })
+          .finally(() => {
+            setIsLoadingAssignees(false);
+          });
       }
     } else {
       setTitle("");
@@ -113,6 +132,8 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoadingAssignees) return;
+
     if (!title.trim() || !deadline) {
       setError("Vui lòng nhập tên cuộc thi và hạn chót hoàn thành");
       return;
@@ -136,8 +157,13 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
         allowLateSubmission,
         allowViewProgress,
         excludeBghFromReports,
-        // Nếu chọn CUSTOM thì gửi ID thư mục, nếu chọn DEFAULT thì để null để fallback về Drive chung của Super Admin
-        driveFolderId: driveOption === "CUSTOM" && customDriveFolder.trim() ? customDriveFolder.trim() : null,
+        // Nếu chọn CUSTOM thì gửi ID thư mục, nếu chọn DEFAULT khi sửa thì giữ nguyên thư mục con đã tạo
+        driveFolderId:
+          driveOption === "CUSTOM" && customDriveFolder.trim()
+            ? customDriveFolder.trim()
+            : isEditing
+            ? competition.driveFolderId
+            : null,
         creatorId: currentUser.id,
         assigneeIds: selectedTeacherIds,
       };
@@ -392,11 +418,18 @@ export const CompetitionFormModal: React.FC<CompetitionFormModalProps> = ({
             <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wider">
               Phân công người thực hiện (Chọn nhanh theo tổ hoặc chọn lẻ cá nhân)
             </label>
-            <DepartmentSelector
-              teachers={teachers}
-              selectedTeacherIds={selectedTeacherIds}
-              onChange={setSelectedTeacherIds}
-            />
+            {isLoadingAssignees ? (
+              <div className="p-8 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-sky-600 border-t-transparent rounded-full animate-spin" />
+                <span>Đang tải danh sách người thực hiện cuộc thi này...</span>
+              </div>
+            ) : (
+              <DepartmentSelector
+                teachers={teachers}
+                selectedTeacherIds={selectedTeacherIds}
+                onChange={setSelectedTeacherIds}
+              />
+            )}
           </div>
 
           {/* Nút lưu */}

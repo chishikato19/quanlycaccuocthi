@@ -147,7 +147,9 @@ export const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
             >
               <option value="USER">Giáo viên thường (Chỉ xem việc & nộp minh chứng)</option>
               <option value="ADMIN">Quản trị viên (Tạo việc, xem báo cáo, xuất Excel)</option>
-              <option value="SUPER_ADMIN">Tổng Admin (Toàn quyền hệ thống)</option>
+              {teacher?.role === "SUPER_ADMIN" && (
+                <option value="SUPER_ADMIN">Tổng Admin (Toàn quyền hệ thống)</option>
+              )}
             </select>
           </div>
 

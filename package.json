@@ -1,6 +1,6 @@
 {
   "name": "bao-cao-cac-cuoc-thi-van-thu",
-  "version": "1.8.7",
+  "version": "1.8.8",
   "private": true,
   "scripts": {
     "dev": "next dev",
