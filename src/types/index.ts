@@ -52,7 +52,7 @@ export interface SubmissionDto {
   imageFileName?: string | null;
   note?: string | null;
   submittedAt: string;
-  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ADMIN_CONFIRMED' | string;
 }
 
 export interface ExportFilterOptions {

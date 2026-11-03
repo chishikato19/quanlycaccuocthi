@@ -6,6 +6,23 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.8.5] - 2026-11-03
+### Bổ Sung Nút Admin Xác Nhận Hoàn Thành Cuộc Thi & Cho Phép GV Nộp Bổ Sung Minh Chứng
+- **Nút Xác Nhận & Hủy Xác Nhận Cho Quản Trị Viên ([`ReportDetailView.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/reports/components/ReportDetailView.tsx)):**
+  - Thêm cột **Thao Tác** cho Admin trong bảng báo cáo chi tiết cuộc thi.
+  - Nút **[✓ Xác nhận]**: Thao tác 1 chạm cho phép Admin xác nhận giáo viên đã làm bài trong trường hợp quên chụp/không lưu minh chứng.
+  - Nút **[↺ Hủy xác nhận]**: Cho phép Admin hoàn tác nếu bấm nhầm, trả lại trạng thái "Chưa nộp" cho giáo viên.
+  - Ghi nhận minh bạch danh tính: Tự động lưu ghi chú dạng `Admin [Tên Admin] xác nhận hoàn thành (không có minh chứng)`, hiển thị trực tiếp trên giao diện và tệp Excel để phục vụ đối soát.
+  - Cột Minh Chứng hiển thị nhãn `[🛡️ Admin xác nhận]` (màu hổ phách), tự động lọc khỏi danh sách xem ảnh Lightbox để tránh lỗi màn hình trắng.
+- **Cho Phép Giáo Viên Nộp Bổ Sung Minh Chứng ([`CompetitionCard.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/competitions/components/CompetitionCard.tsx)):**
+  - Thẻ cuộc thi của giáo viên hiển thị trạng thái `🛡️ Đã hoàn thành (Admin xác nhận)` kèm liên kết `Nộp bổ sung minh chứng`.
+  - Giáo viên có thể nộp ảnh/tệp bổ sung bất kỳ lúc nào nếu tìm lại được kết quả thi; hệ thống tự động ghi đè bản ghi xác nhận bằng tệp minh chứng thực tế và tải lên Google Drive của trường.
+- **API & Xuất Báo Cáo Excel ([`src/app/api/submissions/admin-confirm/route.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/submissions/admin-confirm/route.ts), [`exportExcel.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/reports/services/exportExcel.ts)):**
+  - Endpoint `POST /api/submissions/admin-confirm` xử lý an toàn 2 hành động `CONFIRM` và `CANCEL` trên cả PostgreSQL và Mock Data.
+  - Cột Link Minh chứng khi xuất Excel ghi rõ `"Admin xác nhận (Không có tệp)"`.
+
+---
+
 ## [1.8.4] - 2026-11-02
 ### Tối Ưu Tải Phân Trang 10 Cuộc Thi, Ưu Tiên Cuộc Thi Đang Diễn Ra & Cache Độc Lập Cho Admin
 - **Loại Bỏ Hoàn Toàn Query Thừa Của Admin ([`src/app/api/competitions/route.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/competitions/route.ts)):**

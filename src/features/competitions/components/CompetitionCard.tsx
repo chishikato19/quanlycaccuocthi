@@ -14,7 +14,8 @@ import {
   FastForward,
   StopCircle,
   Trash2,
-  FolderOpen
+  FolderOpen,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 
@@ -191,19 +192,45 @@ export const CompetitionCard = React.memo<CompetitionCardProps>(function Competi
         {!isAdmin && currentUser && (
           <div className="pt-1">
             {hasUserSubmitted ? (
-              <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 text-emerald-800 font-semibold truncate mr-1">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div
+                className={`p-2 border rounded-xl flex items-center justify-between text-xs ${
+                  userSub?.reviewStatus === "ADMIN_CONFIRMED"
+                    ? "bg-amber-50 border-amber-200"
+                    : "bg-emerald-50 border-emerald-200"
+                }`}
+              >
+                <div
+                  className={`flex items-center gap-1.5 font-semibold truncate mr-1 ${
+                    userSub?.reviewStatus === "ADMIN_CONFIRMED"
+                      ? "text-amber-800"
+                      : "text-emerald-800"
+                  }`}
+                >
+                  {userSub?.reviewStatus === "ADMIN_CONFIRMED" ? (
+                    <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  )}
                   <span className="truncate">
-                    {userSub?.status === "LATE" ? "Đã nộp (Muộn)" : "Đã hoàn thành nộp"}
+                    {userSub?.reviewStatus === "ADMIN_CONFIRMED"
+                      ? "Đã hoàn thành (Admin xác nhận)"
+                      : userSub?.status === "LATE"
+                      ? "Đã nộp (Muộn)"
+                      : "Đã hoàn thành nộp"}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => onOpenSubmit(competition)}
-                  className="text-[11px] text-emerald-700 underline font-medium hover:text-emerald-900 shrink-0"
+                  className={`text-[11px] underline font-medium shrink-0 ${
+                    userSub?.reviewStatus === "ADMIN_CONFIRMED"
+                      ? "text-amber-800 hover:text-amber-950 font-semibold"
+                      : "text-emerald-700 hover:text-emerald-900"
+                  }`}
                 >
-                  Nộp lại / Đổi tệp
+                  {userSub?.reviewStatus === "ADMIN_CONFIRMED"
+                    ? "Nộp bổ sung minh chứng"
+                    : "Nộp lại / Đổi tệp"}
                 </button>
               </div>
             ) : (
@@ -244,7 +271,13 @@ export const CompetitionCard = React.memo<CompetitionCardProps>(function Competi
             }`}
           >
             <Upload className="w-3.5 h-3.5" />
-            <span>{hasUserSubmitted ? "Cập Nhật Minh Chứng" : "Nộp Minh Chứng Ngay"}</span>
+            <span>
+              {userSub?.reviewStatus === "ADMIN_CONFIRMED"
+                ? "Nộp Bổ Sung Minh Chứng"
+                : hasUserSubmitted
+                ? "Cập Nhật Minh Chứng"
+                : "Nộp Minh Chứng Ngay"}
+            </span>
           </button>
         )}
       </div>

@@ -16,6 +16,7 @@ export interface ReportRowData {
   localImageUrl?: string | null;
   imageFileName?: string | null;
   note?: string;
+  reviewStatus?: string;
 }
 
 export function exportReportToExcel(params: {
@@ -52,7 +53,13 @@ export function exportReportToExcel(params: {
     if (columns.department) rowObj["Tổ Chuyên Môn"] = row.department;
     if (columns.submissionStatus) rowObj["Trạng Thái Tham Gia"] = row.submissionStatus;
     if (columns.submitTime) rowObj["Thời Gian Nộp"] = row.submitTime ? formatDateTime(row.submitTime) : "---";
-    if (columns.evidenceLink) rowObj["Link Minh Chứng (Drive)"] = row.driveFileUrl || (row.isSubmitted ? "Đã nộp" : "Chưa có");
+    if (columns.evidenceLink) {
+      if (row.reviewStatus === "ADMIN_CONFIRMED" || (!row.driveFileUrl && !row.imageFileName && row.isSubmitted)) {
+        rowObj["Link Minh Chứng (Drive)"] = "Admin xác nhận (Không có tệp)";
+      } else {
+        rowObj["Link Minh Chứng (Drive)"] = row.driveFileUrl || (row.isSubmitted ? "Đã nộp" : "Chưa có");
+      }
+    }
     if (columns.note) rowObj["Ghi Chú"] = row.note || "";
 
     return rowObj;

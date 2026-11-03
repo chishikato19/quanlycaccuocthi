@@ -21,7 +21,11 @@ import {
   FolderArchive,
   Download,
   Crown,
+  ShieldCheck,
+  RotateCcw,
+  Loader2,
 } from "lucide-react";
+import { useAuth } from "@/features/auth/context/AuthContext";
 import { ExportModal } from "./ExportModal";
 import { EvidenceLightbox, LightboxItem } from "@/features/submissions/components/EvidenceLightbox";
 import { ReportRowData } from "../services/exportExcel";
@@ -58,6 +62,9 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "SUBMITTED" | "NOT_SUBMITTED">("ALL");
 
+  const { currentUser, isAdmin } = useAuth();
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
   // Lightbox
   const [lightboxItems, setLightboxItems] = useState<LightboxItem[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -77,7 +84,7 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
 
         const validLightboxItems: LightboxItem[] = [];
         for (const r of json.data.rows) {
-          if (r.isSubmitted) {
+          if (r.isSubmitted && (r.driveFileUrl || r.imageFileName || r.localImageUrl)) {
             validLightboxItems.push({
               id: r.teacherId,
               submissionId: r.submissionId,
@@ -100,6 +107,34 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
       setError("Lỗi kết nối máy chủ");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleToggleAdminConfirm = async (teacherId: string, action: "CONFIRM" | "CANCEL") => {
+    if (!currentUser) return;
+    setActionLoadingId(teacherId);
+    try {
+      const res = await fetch("/api/submissions/admin-confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          competitionId,
+          teacherId,
+          action,
+          adminName: currentUser.name || "Quản trị viên",
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await loadReport();
+      } else {
+        alert(json.error || "Không thể thực hiện thao tác");
+      }
+    } catch (err) {
+      console.error("Lỗi xác nhận admin:", err);
+      alert("Lỗi kết nối máy chủ khi thực hiện thao tác");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -420,12 +455,13 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                 <th className="py-3 px-3.5 font-bold">Thời Gian Nộp</th>
                 <th className="py-3 px-3.5 font-bold">Minh Chứng</th>
                 <th className="py-3 px-3.5 font-bold">Ghi Chú</th>
+                {isAdmin && <th className="py-3 px-3.5 font-bold text-center w-32">Thao Tác</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
+                  <td colSpan={isAdmin ? 8 : 7} className="py-8 text-center text-slate-400">
                     Không có giáo viên nào trong bộ lọc này
                   </td>
                 </tr>
@@ -469,33 +505,40 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                     <td className="py-2.5 px-3.5">
                       {r.isSubmitted ? (
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {(() => {
-                            const info = getFileTypeInfo(r.imageFileName, r.localImageUrl || r.driveFileUrl);
-                            let actionText = "Xem tệp";
-                            if (info.category === "IMAGE") actionText = "Xem ảnh";
-                            else if (info.category === "PDF") actionText = "Xem PDF";
-                            else if (info.category === "WORD") actionText = "Xem Word";
-                            else if (info.category === "EXCEL") actionText = "Xem Excel";
-                            else if (info.category === "POWERPOINT") actionText = "Xem PPT";
-                            else if (info.category === "ARCHIVE") actionText = "File nén";
+                          {r.reviewStatus === "ADMIN_CONFIRMED" || (!r.imageFileName && !r.driveFileUrl && !r.localImageUrl) ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                              <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>Admin xác nhận</span>
+                            </span>
+                          ) : (
+                            (() => {
+                              const info = getFileTypeInfo(r.imageFileName, r.localImageUrl || r.driveFileUrl);
+                              let actionText = "Xem tệp";
+                              if (info.category === "IMAGE") actionText = "Xem ảnh";
+                              else if (info.category === "PDF") actionText = "Xem PDF";
+                              else if (info.category === "WORD") actionText = "Xem Word";
+                              else if (info.category === "EXCEL") actionText = "Xem Excel";
+                              else if (info.category === "POWERPOINT") actionText = "Xem PPT";
+                              else if (info.category === "ARCHIVE") actionText = "File nén";
 
-                            return (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenLightbox(r.teacherId)}
-                                className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-all ${info.badgeBg} ${info.badgeText} ${info.borderColor} hover:opacity-85 shadow-2xs`}
-                                title={`Mở xem ${info.label} (${r.imageFileName || info.ext})`}
-                              >
-                                {info.category === "IMAGE" && <ImageIcon className="w-3.5 h-3.5" />}
-                                {info.category === "PDF" && <FileText className="w-3.5 h-3.5" />}
-                                {info.category === "WORD" && <FileText className="w-3.5 h-3.5" />}
-                                {info.category === "EXCEL" && <FileSpreadsheet className="w-3.5 h-3.5" />}
-                                {info.category === "ARCHIVE" && <FolderArchive className="w-3.5 h-3.5" />}
-                                {(info.category === "OTHER" || info.category === "POWERPOINT") && <Eye className="w-3.5 h-3.5" />}
-                                <span>{actionText}</span>
-                              </button>
-                            );
-                          })()}
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenLightbox(r.teacherId)}
+                                  className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-all ${info.badgeBg} ${info.badgeText} ${info.borderColor} hover:opacity-85 shadow-2xs`}
+                                  title={`Mở xem ${info.label} (${r.imageFileName || info.ext})`}
+                                >
+                                  {info.category === "IMAGE" && <ImageIcon className="w-3.5 h-3.5" />}
+                                  {info.category === "PDF" && <FileText className="w-3.5 h-3.5" />}
+                                  {info.category === "WORD" && <FileText className="w-3.5 h-3.5" />}
+                                  {info.category === "EXCEL" && <FileSpreadsheet className="w-3.5 h-3.5" />}
+                                  {info.category === "ARCHIVE" && <FolderArchive className="w-3.5 h-3.5" />}
+                                  {(info.category === "OTHER" || info.category === "POWERPOINT") && <Eye className="w-3.5 h-3.5" />}
+                                  <span>{actionText}</span>
+                                </button>
+                              );
+                            })()
+                          )}
 
                           {r.driveFileUrl && !r.driveFileUrl.includes("drive-mock") && !r.driveFileUrl.includes("mock") && (
                             <a
@@ -516,6 +559,43 @@ export const ReportDetailView: React.FC<ReportDetailViewProps> = ({
                     <td className="py-2.5 px-3.5 text-slate-500 text-[11px] italic">
                       {r.note || "---"}
                     </td>
+                    {isAdmin && (
+                      <td className="py-2.5 px-3.5 text-center">
+                        {!r.isSubmitted ? (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAdminConfirm(r.teacherId, "CONFIRM")}
+                            disabled={actionLoadingId === r.teacherId}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                            title={`Xác nhận giáo viên ${r.teacherName} đã làm bài (không có minh chứng)`}
+                          >
+                            {actionLoadingId === r.teacherId ? (
+                              <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
+                            ) : (
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            )}
+                            <span>Xác nhận</span>
+                          </button>
+                        ) : r.reviewStatus === "ADMIN_CONFIRMED" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAdminConfirm(r.teacherId, "CANCEL")}
+                            disabled={actionLoadingId === r.teacherId}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                            title="Hủy xác nhận hoàn thành cho giáo viên này"
+                          >
+                            {actionLoadingId === r.teacherId ? (
+                              <Loader2 className="w-3 h-3 animate-spin text-rose-600" />
+                            ) : (
+                              <RotateCcw className="w-3 h-3 text-rose-600" />
+                            )}
+                            <span>Hủy xác nhận</span>
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 text-[11px] font-medium">GV tự nộp</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
