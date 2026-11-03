@@ -15,7 +15,7 @@ import {
   File as FileIcon,
   FileType as FileTypeIcon,
 } from "lucide-react";
-import { CompetitionDto } from "@/types";
+import { CompetitionDto, SubmissionDto } from "@/types";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { isOverdue, formatFileSize, getFileTypeInfo, getMimeTypeFromFileName } from "@/lib/utils";
 
@@ -23,7 +23,7 @@ interface UploadProofModalProps {
   competition: CompetitionDto | null;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (newSubmission?: SubmissionDto) => void;
 }
 
 export const UploadProofModal: React.FC<UploadProofModalProps> = ({
@@ -166,12 +166,12 @@ export const UploadProofModal: React.FC<UploadProofModalProps> = ({
       if (res.ok && data.success) {
         setSuccessMsg(data.message || "Nộp minh chứng thành công!");
         setTimeout(() => {
-          onSuccess();
+          onSuccess(data.data);
           onClose();
           setSuccessMsg("");
           handleResetFile();
           setNote("");
-        }, 1500);
+        }, 1200);
       } else {
         setError(data.error || "Không thể nộp minh chứng");
       }

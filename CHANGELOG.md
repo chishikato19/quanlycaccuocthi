@@ -6,6 +6,21 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.8.7] - 2026-11-03
+### Khắc Phục Triệt Để Lỗi Race Condition Giao Diện Đảo Trạng Thái Bài Nộp & Đồng Bộ Dữ Liệu Tức Thì
+- **Khắc Phục Hiện Tượng Flickering / Race Condition Trạng Thái Bài Nộp ([`src/app/page.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/page.tsx), [`src/features/auth/components/LoginModal.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/auth/components/LoginModal.tsx)):**
+  - **Nguyên nhân gốc rễ:** Khi giáo viên đăng nhập, `LoginModal` cập nhật `currentUser` nhưng đồng thời gọi `onSuccess()`. Hàm tải dữ liệu chạy trong closure cũ chưa có thông tin `teacherId` (Request 1 - không có user) song song với Request 2 do state `currentUser` mới kích hoạt. Request 1 về sau cùng đã vô tình ghi đè `userSubmission: null` lên giao diện và bộ nhớ cache `localStorage`, khiến trạng thái chuyển từ "Đã nộp" sang "Chưa nộp minh chứng".
+  - **Giải pháp xử lý:**
+    1. Bổ sung `activeRequestIdRef` (Request Locking Pattern): Mọi phản hồi API trả về trễ/lỗi thời từ các yêu cầu mạng trước đó sẽ tự động bị loại bỏ hoàn toàn, không thể ghi đè state mới.
+    2. Truyền trực tiếp đối tượng tài khoản vừa xác thực từ `LoginModal` vào hàm `loadData(newUser)`, đảm bảo truy vấn danh sách cuộc thi ngay từ đầu luôn mang theo `teacherId`.
+    3. Tự động xóa sạch danh sách cuộc thi cũ khi đăng xuất (`setCompetitions([])`) để không bao giờ hiển thị nhầm bài nộp của tài khoản trước.
+- **Tối Ưu Truy Vấn Lấy Bài Nộp Mới Nhất ([`src/app/api/competitions/route.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/competitions/route.ts)):**
+  - Thêm `orderBy: { submittedAt: "desc" }` vào câu lệnh Prisma `include.submissions`, đảm bảo hệ thống luôn trả về bài nộp hoặc minh chứng mới nhất của giáo viên nếu có nhiều lượt nộp.
+- **Cập Nhật Lạc Quan (Optimistic UI) Sau Khi Nộp Minh Chứng ([`UploadProofModal.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/submissions/components/UploadProofModal.tsx)):**
+  - Giao diện và `localStorage` lập tức cập nhật sang trạng thái "Đã nộp minh chứng" ngay khi API tải ảnh thành công, mang lại trải nghiệm mượt mà không có độ trễ mạng.
+
+---
+
 ## [1.8.6] - 2026-11-03
 ### Nâng Cấp Hệ Thống Toàn Diện: Tăng Tốc Tải Trang 92%, Chặn Phình To CSDL, Bảo Mật Dual-Mode & Cam Kết Bảo Toàn Dữ Liệu
 - **Bảo Vệ Toàn Vẹn CSDL & Chống Mất Dữ Liệu ([`scripts/vercel-build.js`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/scripts/vercel-build.js)):**

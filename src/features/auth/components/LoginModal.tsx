@@ -8,7 +8,7 @@ import { useAuth } from "../context/AuthContext";
 
 interface LoginModalProps {
   isOpen: boolean;
-  onSuccess: () => void;
+  onSuccess: (user?: TeacherDto) => void;
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onSuccess }) => {
@@ -96,7 +96,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onSuccess }) => 
       const data = await res.json();
       if (res.ok && data.success) {
         setCurrentUser(data.user);
-        onSuccess();
+        onSuccess(data.user);
       } else {
         setError(data.error || "Mã PIN không chính xác");
       }
@@ -132,7 +132,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onSuccess }) => 
       const data = await res.json();
       if (res.ok && data.success) {
         setCurrentUser(data.user);
-        onSuccess();
+        onSuccess(data.user);
       } else {
         setError(data.error || "Tài khoản hoặc mật mã Tổng Quản Trị không đúng");
       }

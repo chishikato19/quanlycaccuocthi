@@ -90,7 +90,7 @@ export async function GET(req: Request) {
     };
 
     if (teacherId) {
-      // Chỉ lấy duy nhất 1 bản ghi bài nộp của chính người dùng hiện tại
+      // Chỉ lấy duy nhất 1 bản ghi bài nộp mới nhất của chính người dùng hiện tại
       includeClause.submissions = {
         where: { teacherId },
         select: {
@@ -102,6 +102,7 @@ export async function GET(req: Request) {
           note: true,
           reviewStatus: true,
         },
+        orderBy: { submittedAt: "desc" },
         take: 1,
       };
     }

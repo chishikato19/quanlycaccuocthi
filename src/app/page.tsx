@@ -108,6 +108,9 @@ export default function HomePage() {
     hasCompetitionsRef.current = competitions.length > 0;
   }, [competitions.length]);
 
+  // Khóa định danh chống Race Condition: Bỏ qua mọi response mạng cũ bị trễ hơn request mới nhất
+  const activeRequestIdRef = React.useRef(0);
+
   // Nạp cache riêng của người dùng ngay khi xác định được phiên đăng nhập
   useEffect(() => {
     if (typeof window === "undefined" || !currentUser) return;
@@ -160,19 +163,28 @@ export default function HomePage() {
     }
   }, []);
 
-  // Tải danh sách cuộc thi (Phân trang 10 cuộc thi, ưu tiên đang diễn ra)
-  const loadData = useCallback(async () => {
+  // Tải danh sách cuộc thi (Phân trang 10 cuộc thi, ưu tiên đang diễn ra, chống xung đột Race Condition)
+  const loadData = useCallback(async (overrideUser?: TeacherDto | null) => {
+    const userToUse = overrideUser !== undefined ? overrideUser : currentUser;
+    const currentRequestId = ++activeRequestIdRef.current;
+
     if (!hasCompetitionsRef.current) {
       setIsLoadingData(true);
     }
     setIsRefreshing(true);
     try {
-      const compUrl = currentUser
-        ? `/api/competitions?teacherId=${currentUser.id}&role=${currentUser.role}&page=1&limit=10`
+      const compUrl = userToUse
+        ? `/api/competitions?teacherId=${userToUse.id}&role=${userToUse.role}&page=1&limit=10`
         : `/api/competitions?page=1&limit=10`;
 
       const res = await fetch(compUrl);
       const json = await res.json();
+
+      // BỎ QUA nếu đã có một request khác mới hơn được phát đi (ngăn chặn đè sai trạng thái nộp)
+      if (currentRequestId !== activeRequestIdRef.current) {
+        return;
+      }
+
       if (json.success && Array.isArray(json.data)) {
         setCompetitions(json.data);
         setPage(1);
@@ -184,14 +196,16 @@ export default function HomePage() {
         }
         // Ghi vào bộ nhớ đệm riêng biệt của tài khoản này
         try {
-          localStorage.setItem(getCacheKey(currentUser), JSON.stringify(json.data));
+          localStorage.setItem(getCacheKey(userToUse), JSON.stringify(json.data));
         } catch {}
       }
     } catch (err) {
       console.error("Load competitions error:", err);
     } finally {
-      setIsLoadingData(false);
-      setIsRefreshing(false);
+      if (currentRequestId === activeRequestIdRef.current) {
+        setIsLoadingData(false);
+        setIsRefreshing(false);
+      }
     }
   }, [currentUser, getCacheKey]);
 
@@ -200,6 +214,7 @@ export default function HomePage() {
     if (isLoadingMore || !hasMore) return;
     setIsLoadingMore(true);
     const nextPage = page + 1;
+    const currentRequestId = ++activeRequestIdRef.current;
     try {
       const compUrl = currentUser
         ? `/api/competitions?teacherId=${currentUser.id}&role=${currentUser.role}&page=${nextPage}&limit=10`
@@ -207,6 +222,7 @@ export default function HomePage() {
 
       const res = await fetch(compUrl);
       const json = await res.json();
+      if (currentRequestId !== activeRequestIdRef.current) return;
       if (json.success && Array.isArray(json.data)) {
         setCompetitions(prev => {
           const existingIds = new Set(prev.map(c => c.id));
@@ -224,7 +240,9 @@ export default function HomePage() {
     } catch (err) {
       console.error("Load more error:", err);
     } finally {
-      setIsLoadingMore(false);
+      if (currentRequestId === activeRequestIdRef.current) {
+        setIsLoadingMore(false);
+      }
     }
   };
 
@@ -384,6 +402,10 @@ export default function HomePage() {
                   type="button"
                   onClick={() => {
                     logout();
+                    setCompetitions([]);
+                    try {
+                      localStorage.removeItem("cached_competitions_guest");
+                    } catch {}
                     setIsLoginModalOpen(true);
                   }}
                   className="p-1.5 sm:p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
@@ -518,7 +540,7 @@ export default function HomePage() {
 
                   <button
                     type="button"
-                    onClick={loadData}
+                    onClick={() => loadData()}
                     disabled={isRefreshing}
                     className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1 text-xs ml-auto disabled:opacity-60"
                     title="Làm mới dữ liệu"
@@ -615,7 +637,7 @@ export default function HomePage() {
             {activeTab === "TEACHERS" && isAdmin && (
               <TeacherTable
                 teachers={teachers}
-                onRefresh={loadData}
+                onRefresh={() => loadData()}
                 onOpenAdd={() => {
                   setSelectedTeacherForEdit(null);
                   setIsTeacherFormOpen(true);
@@ -636,15 +658,18 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400 mt-auto">
-        Hệ Thống Báo Cáo Cuộc Thi &bull; Tối ưu Lazy Loading siêu tốc &bull; Phiên bản 1.8.0
+        Hệ Thống Báo Cáo Cuộc Thi &bull; Tối ưu Lazy Loading siêu tốc &bull; Phiên bản 1.8.7
       </footer>
 
       {/* MODALS */}
       <LoginModal
         isOpen={isLoginModalOpen}
-        onSuccess={() => {
+        onSuccess={(newUser) => {
           setIsLoginModalOpen(false);
-          loadData();
+          // Truyền ngay thông tin tài khoản mới để tải chính xác bài nộp, chống Race Condition
+          if (newUser) {
+            loadData(newUser);
+          }
         }}
       />
 
@@ -656,7 +681,7 @@ export default function HomePage() {
       <DriveConfigModal
         isOpen={isDriveConfigOpen}
         onClose={() => setIsDriveConfigOpen(false)}
-        onSuccess={loadData}
+        onSuccess={() => loadData()}
       />
 
       <UploadProofModal
@@ -666,7 +691,28 @@ export default function HomePage() {
           setIsSubmitModalOpen(false);
           setSelectedCompForSubmit(null);
         }}
-        onSuccess={loadData}
+        onSuccess={(newSub) => {
+          // Cập nhật giao diện và cache ngay lập tức khi nộp thành công
+          if (newSub && newSub.competitionId) {
+            setCompetitions((prev) => {
+              const updated = prev.map((c) => {
+                if (c.id === newSub.competitionId) {
+                  return {
+                    ...c,
+                    userSubmission: newSub,
+                    totalSubmissions: c.userSubmission ? c.totalSubmissions : (c.totalSubmissions || 0) + 1,
+                  };
+                }
+                return c;
+              });
+              try {
+                localStorage.setItem(getCacheKey(currentUser), JSON.stringify(updated));
+              } catch {}
+              return updated;
+            });
+          }
+          loadData();
+        }}
       />
 
       <CompetitionFormModal
@@ -677,7 +723,7 @@ export default function HomePage() {
           setIsCompFormOpen(false);
           setSelectedCompForEdit(null);
         }}
-        onSuccess={loadData}
+        onSuccess={() => loadData()}
       />
 
       <TaskActionModal
@@ -688,7 +734,7 @@ export default function HomePage() {
           setActionModalMode(null);
           setSelectedCompForAction(null);
         }}
-        onSuccess={loadData}
+        onSuccess={() => loadData()}
       />
 
       <TeacherFormModal
@@ -698,20 +744,20 @@ export default function HomePage() {
           setIsTeacherFormOpen(false);
           setSelectedTeacherForEdit(null);
         }}
-        onSuccess={loadData}
+        onSuccess={() => loadData()}
       />
 
       <ExcelPasteModal
         isOpen={isExcelPasteOpen}
         onClose={() => setIsExcelPasteOpen(false)}
-        onSuccess={loadData}
+        onSuccess={() => loadData()}
       />
 
       <ResetPinModal
         teacher={selectedTeacherForResetPin}
         isOpen={!!selectedTeacherForResetPin}
         onClose={() => setSelectedTeacherForResetPin(null)}
-        onSuccess={loadData}
+        onSuccess={() => loadData()}
       />
     </div>
   );
