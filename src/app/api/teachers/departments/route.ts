@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isDatabaseConfigured, mockTeachers } from "@/lib/mock-data";
+import { requireAuth } from "@/lib/auth";
 
 // Lấy danh sách các tổ và số lượng thành viên
 export async function GET() {
@@ -46,6 +47,9 @@ export async function GET() {
 // Thao tác với Tổ chuyên môn: ASSIGN (thêm/chuyển vào tổ), RENAME (đổi tên tổ), DELETE (xóa tổ)
 export async function POST(req: Request) {
   try {
+    const auth = requireAuth(["ADMIN", "SUPER_ADMIN"]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const { action, department, teacherIds, oldName, newName, departmentName } = body;
 

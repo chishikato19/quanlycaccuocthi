@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ensureCompetitionSubfolder, extractDriveFolderId, parseDriveConfig } from "@/lib/google-drive";
 import { isDatabaseConfigured, mockCompetitions } from "@/lib/mock-data";
+import { requireAuth } from "@/lib/auth";
 
 export async function GET(req: Request) {
   try {
@@ -9,7 +10,8 @@ export async function GET(req: Request) {
     const teacherId = searchParams.get("teacherId");
     const role = searchParams.get("role");
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    const limit = Math.max(1, parseInt(searchParams.get("limit") || "10", 10));
+    // Giới hạn trần phân trang tối đa 100 cuộc thi để ngăn chặn DoS bộ nhớ
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "10", 10)));
     const skip = (page - 1) * limit;
     const fetchAll = searchParams.get("all") === "true";
 
@@ -170,12 +172,19 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     console.error("Fetch competitions error:", error);
-    return NextResponse.json({ success: true, data: mockCompetitions, isDemoMode: true });
+    return NextResponse.json(
+      { error: "Không thể kết nối cơ sở dữ liệu để tải danh sách cuộc thi" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(req: Request) {
   try {
+    // 1. Kiểm tra xác thực phía Server (Chỉ Admin hoặc Super Admin mới được tạo cuộc thi)
+    const auth = requireAuth(["ADMIN", "SUPER_ADMIN"]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const {
       title,
@@ -186,11 +195,13 @@ export async function POST(req: Request) {
       allowViewProgress = true,
       excludeBghFromReports = true,
       driveFolderId,
-      creatorId,
       assigneeIds = [],
     } = body;
 
-    if (!title || !deadline || !creatorId) {
+    // Sử dụng ID người tạo từ Server Session đã xác thực để chống mạo danh
+    const creatorId = auth.user!.id;
+
+    if (!title || !deadline) {
       return NextResponse.json({ error: "Vui lòng nhập đầy đủ tiêu đề và hạn nộp" }, { status: 400 });
     }
 

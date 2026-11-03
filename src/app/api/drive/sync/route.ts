@@ -2,9 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { uploadToGoogleDrive, ensureCompetitionSubfolder, parseDriveConfig } from "@/lib/google-drive";
 import { isDatabaseConfigured } from "@/lib/mock-data";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
+    // 1. Xác thực Server Session bắt buộc
+    const auth = requireAuth(["ADMIN", "SUPER_ADMIN"]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     if (!isDatabaseConfigured()) {
       return NextResponse.json({
         success: true,

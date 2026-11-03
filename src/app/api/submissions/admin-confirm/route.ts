@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { isDatabaseConfigured, mockCompetitions } from "@/lib/mock-data";
+import { isDatabaseConfigured } from "@/lib/mock-data";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
+    // 1. Kiểm tra xác thực phía Server: Bắt buộc là ADMIN hoặc SUPER_ADMIN
+    const auth = requireAuth(["ADMIN", "SUPER_ADMIN"]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
-    const { competitionId, teacherId, action, adminName, note } = body;
+    const { competitionId, teacherId, action, note } = body;
 
     if (!competitionId || !teacherId) {
       return NextResponse.json(
@@ -21,59 +26,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const cleanAdminName = adminName ? String(adminName).trim() : "Quản trị viên";
+    // Lấy tên admin đã xác thực từ Server Session, không tin tưởng body client
+    const cleanAdminName = auth.user!.name || "Quản trị viên";
     const confirmedNote =
       note && note.trim()
         ? `Admin ${cleanAdminName} xác nhận: ${note.trim()}`
         : `Admin ${cleanAdminName} xác nhận hoàn thành (không có minh chứng)`;
 
-    // 1. Chế độ xem trước (Demo in-memory mode)
     if (!isDatabaseConfigured()) {
-      const comp =
-        mockCompetitions.find((c) => c.id === competitionId) || mockCompetitions[0];
-
-      if (action === "CONFIRM") {
-        const existingIdx = comp.submissions.findIndex(
-          (s) => s.teacherId === teacherId
-        );
-        if (existingIdx >= 0) {
-          comp.submissions[existingIdx] = {
-            ...comp.submissions[existingIdx],
-            status: "ON_TIME",
-            driveFileUrl: null,
-            localImageUrl: null,
-            note: confirmedNote,
-            reviewStatus: "ADMIN_CONFIRMED",
-            submittedAt: new Date().toISOString(),
-          };
-        } else {
-          comp.submissions.push({
-            id: `demo-sub-${Date.now()}`,
-            competitionId,
-            teacherId,
-            status: "ON_TIME",
-            submittedAt: new Date().toISOString(),
-            driveFileUrl: null,
-            localImageUrl: null,
-            note: confirmedNote,
-            reviewStatus: "ADMIN_CONFIRMED",
-          });
-        }
-      } else {
-        // CANCEL: Xóa bài nộp
-        comp.submissions = comp.submissions.filter(
-          (s) => s.teacherId !== teacherId
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        message:
-          action === "CONFIRM"
-            ? `Đã xác nhận hoàn thành cho giáo viên (${cleanAdminName})`
-            : "Đã hủy xác nhận hoàn thành",
-        isDemoMode: true,
-      });
+      return NextResponse.json(
+        { error: "Cơ sở dữ liệu chưa sẵn sàng" },
+        { status: 503 }
+      );
     }
 
     // 2. Cơ sở dữ liệu Cloud PostgreSQL

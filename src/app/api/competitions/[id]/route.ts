@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { extractDriveFolderId } from "@/lib/google-drive";
+import { requireAuth } from "@/lib/auth";
 
 export async function GET(
   _req: Request,
@@ -10,7 +11,8 @@ export async function GET(
     const competition = await db.competition.findUnique({
       where: { id: params.id },
       include: {
-        creator: { select: { id: true, name: true, driveFolderId: true } },
+        // Chỉ lấy tên và ID người tạo, tuyệt đối không trả về driveFolderId nhạy cảm
+        creator: { select: { id: true, name: true } },
         assignees: {
           include: {
             teacher: {
@@ -44,6 +46,10 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // 1. Kiểm tra xác thực phía Server (Chỉ Admin hoặc Super Admin)
+    const auth = requireAuth(["ADMIN", "SUPER_ADMIN"]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const {
       title,
@@ -73,11 +79,16 @@ export async function PUT(
       }
     }
 
-    // Cập nhật người thực hiện nếu có truyền assigneeIds
+    // 2. Sử dụng Prisma Transaction để bảo toàn toàn vẹn dữ liệu:
+    // Nếu có lỗi xảy ra, toàn bộ thao tác được rollback, không làm mất danh sách phân công
+    const txOperations: any[] = [];
+
     if (Array.isArray(assigneeIds)) {
-      await db.competitionAssignee.deleteMany({
-        where: { competitionId: params.id },
-      });
+      txOperations.push(
+        db.competitionAssignee.deleteMany({
+          where: { competitionId: params.id },
+        })
+      );
 
       // Lọc bỏ tài khoản Super Admin ra khỏi người tham gia
       const superAdminIds = (
@@ -96,18 +107,25 @@ export async function PUT(
 
       const safeAssigneeIds = assigneeIds.filter((id: string) => !superAdminIds.includes(id));
 
-      await db.competitionAssignee.createMany({
-        data: safeAssigneeIds.map((tId: string) => ({
-          competitionId: params.id,
-          teacherId: tId,
-        })),
-      });
+      txOperations.push(
+        db.competitionAssignee.createMany({
+          data: safeAssigneeIds.map((tId: string) => ({
+            competitionId: params.id,
+            teacherId: tId,
+          })),
+        })
+      );
     }
 
-    const updated = await db.competition.update({
-      where: { id: params.id },
-      data: updateData,
-    });
+    txOperations.push(
+      db.competition.update({
+        where: { id: params.id },
+        data: updateData,
+      })
+    );
+
+    const txResults = await db.$transaction(txOperations);
+    const updated = txResults[txResults.length - 1];
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
@@ -117,17 +135,13 @@ export async function PUT(
 }
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const userId = req.headers.get("x-user-id");
-    if (userId) {
-      const requester = await db.teacher.findUnique({ where: { id: userId } });
-      if (!requester || (requester.role !== "ADMIN" && requester.role !== "SUPER_ADMIN")) {
-        return NextResponse.json({ error: "Bạn không có quyền xóa cuộc thi" }, { status: 403 });
-      }
-    }
+    // Kiểm tra quyền nghiêm ngặt qua Session Cookie: Chỉ Admin hoặc Super Admin
+    const auth = requireAuth(["ADMIN", "SUPER_ADMIN"]);
+    if (auth.errorResponse) return auth.errorResponse;
 
     await db.competition.delete({
       where: { id: params.id },

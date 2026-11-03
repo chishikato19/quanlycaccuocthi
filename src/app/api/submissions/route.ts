@@ -2,9 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { uploadToGoogleDrive, parseDriveConfig } from "@/lib/google-drive";
 import { isDatabaseConfigured } from "@/lib/mock-data";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
+    // 1. Xác thực Server Session bắt buộc
+    const auth = requireAuth();
+    if (auth.errorResponse) return auth.errorResponse;
+
     const body = await req.json();
     const {
       competitionId,
@@ -19,23 +24,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Thông tin nộp bài không đầy đủ" }, { status: 400 });
     }
 
+    // 2. Chống lỗ hổng IDOR: Giáo viên thường CHỈ ĐƯỢC nộp bài cho chính mình
+    if (auth.user!.role === "USER" && auth.user!.id !== teacherId) {
+      return NextResponse.json(
+        { error: "Bạn không được phép nộp minh chứng thay cho giáo viên khác" },
+        { status: 403 }
+      );
+    }
+
     if (!isDatabaseConfigured()) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          id: `demo-sub-${Date.now()}`,
-          competitionId,
-          teacherId,
-          status: "ON_TIME",
-          localImageUrl: base64Image || null,
-          driveFileUrl: null,
-          note: note || "",
-          submittedAt: new Date().toISOString(),
-          reviewStatus: "APPROVED",
-        },
-        message: "Nộp minh chứng thành công (Chế độ xem trước)",
-        isDemoMode: true,
-      });
+      return NextResponse.json(
+        { error: "Cơ sở dữ liệu chưa sẵn sàng" },
+        { status: 503 }
+      );
+    }
+
+    // 3. Kiểm tra kích thước tệp tải lên ở Server (Tối đa ~4.5MB Base64)
+    if (base64Image && base64Image.length > 6 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "Dung lượng tệp tải lên vượt quá giới hạn 4.5MB" },
+        { status: 400 }
+      );
     }
 
     const competition = await db.competition.findUnique({
@@ -53,6 +62,23 @@ export async function POST(req: Request) {
 
     if (competition.status === "CLOSED_EARLY") {
       return NextResponse.json({ error: "Cuộc thi này đã được quản trị viên kết thúc sớm" }, { status: 400 });
+    }
+
+    // 4. Kiểm tra giáo viên có được phân công tham gia cuộc thi này không
+    const isAssigned = await db.competitionAssignee.findUnique({
+      where: {
+        competitionId_teacherId: {
+          competitionId,
+          teacherId,
+        },
+      },
+    });
+
+    if (!isAssigned && auth.user!.role === "USER") {
+      return NextResponse.json(
+        { error: "Bạn không thuộc danh sách giáo viên được phân công cuộc thi này" },
+        { status: 403 }
+      );
     }
 
     const teacher = await db.teacher.findUnique({
@@ -77,7 +103,6 @@ export async function POST(req: Request) {
 
     let driveFileId = null;
     let driveFileUrl = null;
-    // Chặn phình to CSDL: Chỉ giữ Base64 nếu chưa thể tải lên Google Drive
     let localImageUrl: string | null = null;
 
     if (base64Image) {
@@ -112,7 +137,6 @@ export async function POST(req: Request) {
       driveFileUrl = uploadRes.driveUrl;
 
       // Nếu tải lên Drive thành công thì không lưu Base64 vào CSDL để tránh nghẽn storage
-      // Chỉ lưu Base64 khi không có link Drive (chế độ demo/dự phòng)
       if (!driveFileUrl) {
         localImageUrl = base64Image;
       }
@@ -130,7 +154,6 @@ export async function POST(req: Request) {
     }
 
     // Lưu hoặc cập nhật bản ghi Submission (Upsert)
-    // Lưu ý an toàn: Nếu bản ghi cũ đã có dữ liệu, update không làm mất dữ liệu cũ
     const submission = await db.submission.upsert({
       where: {
         competitionId_teacherId: {

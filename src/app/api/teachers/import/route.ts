@@ -2,9 +2,14 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { ParsedTeacherRow } from "@/lib/excel-parser";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
+    // 1. Xác thực Server Session bắt buộc: Phải là ADMIN hoặc SUPER_ADMIN
+    const auth = requireAuth(["ADMIN", "SUPER_ADMIN"]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { rows } = (await req.json()) as { rows: ParsedTeacherRow[] };
 
     if (!rows || !Array.isArray(rows) || rows.length === 0) {
@@ -22,6 +27,12 @@ export async function POST(req: Request) {
         continue;
       }
 
+      // BẢO MẬT: Tuyệt đối không cho phép tạo SUPER_ADMIN từ file dán; chỉ SUPER_ADMIN mới được gán role ADMIN
+      let safeRole: "USER" | "ADMIN" = "USER";
+      if (row.role === "ADMIN" && auth.user!.role === "SUPER_ADMIN") {
+        safeRole = "ADMIN";
+      }
+
       // Kiểm tra xem giáo viên đã tồn tại chưa (dựa theo tên và tổ bộ môn)
       const existing = await db.teacher.findFirst({
         where: {
@@ -31,13 +42,14 @@ export async function POST(req: Request) {
       });
 
       if (existing) {
-        // Cập nhật lại số điện thoại hoặc kích hoạt lại nếu đã bị ẩn
+        // Cập nhật lại số điện thoại hoặc kích hoạt lại nếu đã bị ẩn (bảo toàn role cũ nếu là SUPER_ADMIN)
+        const updateRole = existing.role === "SUPER_ADMIN" ? "SUPER_ADMIN" : safeRole;
         await db.teacher.update({
           where: { id: existing.id },
           data: {
             isActive: true,
             phone: row.phone ? row.phone.trim() : existing.phone,
-            role: row.role || existing.role,
+            role: updateRole,
           },
         });
         importedCount++;
@@ -48,7 +60,7 @@ export async function POST(req: Request) {
             name: row.name.trim(),
             department: row.department.trim() || "Chung",
             phone: row.phone ? row.phone.trim() : null,
-            role: row.role || "USER",
+            role: safeRole,
             pinCode: hashedPin,
             isActive: true,
           },

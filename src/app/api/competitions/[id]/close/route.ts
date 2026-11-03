@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
+    const auth = requireAuth(["ADMIN", "SUPER_ADMIN"]);
+    if (auth.errorResponse) return auth.errorResponse;
+
     const updated = await db.competition.update({
       where: { id: params.id },
       data: {

@@ -19,17 +19,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Đọc phiên đăng nhập từ localStorage
+    // Đọc phiên đăng nhập từ localStorage để nạp tức thì (SWR)
+    let hasLocal = false;
     try {
       const savedUser = localStorage.getItem("current_teacher_session");
       if (savedUser) {
         setCurrentUser(JSON.parse(savedUser));
+        hasLocal = true;
       }
     } catch (e) {
       console.error("Failed to load user session", e);
-    } finally {
-      setIsLoading(false);
     }
+
+    // Xác thực phiên với Server qua HttpOnly Cookie để chống giả mạo quyền ở localStorage
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.authenticated && data.user) {
+          setCurrentUser(data.user);
+          localStorage.setItem("current_teacher_session", JSON.stringify(data.user));
+        } else if (hasLocal) {
+          // Phiên cookie ở server đã hết hạn hoặc không hợp lệ -> xóa sạch local state
+          setCurrentUser(null);
+          localStorage.removeItem("current_teacher_session");
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, []);
 
   const handleSetCurrentUser = (user: TeacherDto | null) => {
@@ -42,6 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     handleSetCurrentUser(null);
   };
 

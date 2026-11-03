@@ -2,13 +2,22 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { isDatabaseConfigured } from "@/lib/mock-data";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
+    const auth = requireAuth();
+    if (auth.errorResponse) return auth.errorResponse;
+
     const { teacherId, oldPin, newPin } = await req.json();
 
     if (!teacherId || !oldPin || !newPin) {
       return NextResponse.json({ error: "Vui lòng nhập đầy đủ mã PIN cũ và mã PIN mới" }, { status: 400 });
+    }
+
+    // Chỉ chính chủ tài khoản mới được đổi mã PIN của mình
+    if (auth.user!.id !== teacherId && auth.user!.role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Bạn chỉ có thể đổi mã PIN của chính mình" }, { status: 403 });
     }
 
     if (newPin.trim().length < 4) {
@@ -16,7 +25,10 @@ export async function POST(req: Request) {
     }
 
     if (!isDatabaseConfigured()) {
-      return NextResponse.json({ success: true, message: "Đổi mã PIN thành công (Chế độ xem trước)!" });
+      return NextResponse.json(
+        { error: "Cơ sở dữ liệu chưa sẵn sàng" },
+        { status: 503 }
+      );
     }
 
     const teacher = await db.teacher.findUnique({
