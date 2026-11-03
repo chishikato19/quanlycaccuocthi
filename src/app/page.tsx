@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { CompetitionDto, TeacherDto } from "@/types";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import {
@@ -20,19 +21,61 @@ import {
   Filter
 } from "lucide-react";
 
-// Modals & Components
-import { LoginModal } from "@/features/auth/components/LoginModal";
-import { ChangePinModal } from "@/features/auth/components/ChangePinModal";
-import { DriveConfigModal } from "@/features/auth/components/DriveConfigModal";
+// Thẻ cuộc thi nạp trực tiếp để tối ưu hiển thị ban đầu
 import { CompetitionCard } from "@/features/competitions/components/CompetitionCard";
-import { CompetitionFormModal } from "@/features/competitions/components/CompetitionFormModal";
-import { TaskActionModal } from "@/features/competitions/components/TaskActionModal";
-import { UploadProofModal } from "@/features/submissions/components/UploadProofModal";
-import { TeacherTable } from "@/features/teachers/components/TeacherTable";
-import { TeacherFormModal } from "@/features/teachers/components/TeacherFormModal";
-import { ExcelPasteModal } from "@/features/teachers/components/ExcelPasteModal";
-import { ResetPinModal } from "@/features/teachers/components/ResetPinModal";
-import { ReportDetailView } from "@/features/reports/components/ReportDetailView";
+
+// Tải động (Dynamic Import / Code-Splitting) cho toàn bộ Modals & Màn hình phụ để giảm First Load JS
+const LoginModal = dynamic(
+  () => import("@/features/auth/components/LoginModal").then((mod) => mod.LoginModal),
+  { ssr: false }
+);
+const ChangePinModal = dynamic(
+  () => import("@/features/auth/components/ChangePinModal").then((mod) => mod.ChangePinModal),
+  { ssr: false }
+);
+const DriveConfigModal = dynamic(
+  () => import("@/features/auth/components/DriveConfigModal").then((mod) => mod.DriveConfigModal),
+  { ssr: false }
+);
+const UploadProofModal = dynamic(
+  () => import("@/features/submissions/components/UploadProofModal").then((mod) => mod.UploadProofModal),
+  { ssr: false }
+);
+const CompetitionFormModal = dynamic(
+  () => import("@/features/competitions/components/CompetitionFormModal").then((mod) => mod.CompetitionFormModal),
+  { ssr: false }
+);
+const TaskActionModal = dynamic(
+  () => import("@/features/competitions/components/TaskActionModal").then((mod) => mod.TaskActionModal),
+  { ssr: false }
+);
+const TeacherTable = dynamic(
+  () => import("@/features/teachers/components/TeacherTable").then((mod) => mod.TeacherTable),
+  { ssr: false }
+);
+const TeacherFormModal = dynamic(
+  () => import("@/features/teachers/components/TeacherFormModal").then((mod) => mod.TeacherFormModal),
+  { ssr: false }
+);
+const ExcelPasteModal = dynamic(
+  () => import("@/features/teachers/components/ExcelPasteModal").then((mod) => mod.ExcelPasteModal),
+  { ssr: false }
+);
+const ResetPinModal = dynamic(
+  () => import("@/features/teachers/components/ResetPinModal").then((mod) => mod.ResetPinModal),
+  { ssr: false }
+);
+const ReportDetailView = dynamic(
+  () => import("@/features/reports/components/ReportDetailView").then((mod) => mod.ReportDetailView),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="p-12 text-center text-slate-500 bg-white rounded-2xl border border-slate-200">
+        Đang nạp chi tiết báo cáo...
+      </div>
+    ),
+  }
+);
 
 export default function HomePage() {
   const { currentUser, logout, isAdmin, isSuperAdmin, isLoading: isAuthLoading } = useAuth();
@@ -212,7 +255,10 @@ export default function HomePage() {
   const handleDeleteCompetition = async (comp: CompetitionDto) => {
     if (!confirm(`Bạn có chắc chắn muốn xóa cuộc thi "${comp.title}"?`)) return;
     try {
-      const res = await fetch(`/api/competitions/${comp.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/competitions/${comp.id}`, {
+        method: "DELETE",
+        headers: { "x-user-id": currentUser?.id || "" },
+      });
       const data = await res.json();
       if (res.ok && data.success) {
         loadData();
@@ -228,7 +274,10 @@ export default function HomePage() {
   const handleDeleteTeacher = async (teacher: TeacherDto) => {
     if (!confirm(`Bạn có chắc chắn muốn xóa giáo viên "${teacher.name}"?`)) return;
     try {
-      const res = await fetch(`/api/teachers?id=${teacher.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/teachers?id=${teacher.id}`, {
+        method: "DELETE",
+        headers: { "x-user-id": currentUser?.id || "" },
+      });
       const data = await res.json();
       if (res.ok && data.success) {
         loadTeachers();

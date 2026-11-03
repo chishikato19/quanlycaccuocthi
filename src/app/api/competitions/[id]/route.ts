@@ -117,10 +117,18 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
+    const userId = req.headers.get("x-user-id");
+    if (userId) {
+      const requester = await db.teacher.findUnique({ where: { id: userId } });
+      if (!requester || (requester.role !== "ADMIN" && requester.role !== "SUPER_ADMIN")) {
+        return NextResponse.json({ error: "Bạn không có quyền xóa cuộc thi" }, { status: 403 });
+      }
+    }
+
     await db.competition.delete({
       where: { id: params.id },
     });

@@ -27,8 +27,9 @@ try {
 if (dbUrl && (dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://'))) {
   console.log('✅ Đã phát hiện cấu hình DATABASE_URL (PostgreSQL). Đang đồng bộ cấu trúc bảng...');
   try {
-    execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
-    console.log('✅ Đồng bộ bảng CSDL thành công!');
+    // Không dùng cờ --accept-data-loss để đảm bảo an toàn tuyệt đối cho dữ liệu hiện có
+    execSync('npx prisma db push', { stdio: 'inherit' });
+    console.log('✅ Đồng bộ bảng CSDL thành công (An toàn dữ liệu)!');
   } catch (err) {
     console.error('⚠️ Không thể tự động push schema:', err.message);
   }

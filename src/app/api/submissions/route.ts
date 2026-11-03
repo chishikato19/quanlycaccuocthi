@@ -77,7 +77,8 @@ export async function POST(req: Request) {
 
     let driveFileId = null;
     let driveFileUrl = null;
-    let localImageUrl = base64Image || null;
+    // Chặn phình to CSDL: Chỉ giữ Base64 nếu chưa thể tải lên Google Drive
+    let localImageUrl: string | null = null;
 
     if (base64Image) {
       // Lấy cấu hình Drive chung của Nhà trường từ Super Admin
@@ -110,6 +111,12 @@ export async function POST(req: Request) {
       driveFileId = uploadRes.fileId;
       driveFileUrl = uploadRes.driveUrl;
 
+      // Nếu tải lên Drive thành công thì không lưu Base64 vào CSDL để tránh nghẽn storage
+      // Chỉ lưu Base64 khi không có link Drive (chế độ demo/dự phòng)
+      if (!driveFileUrl) {
+        localImageUrl = base64Image;
+      }
+
       // Nếu cuộc thi trước đó chưa lưu driveFolderId, cập nhật ngay
       if (!competition.driveFolderId && uploadRes.folderId) {
         await db.competition.update({
@@ -123,6 +130,7 @@ export async function POST(req: Request) {
     }
 
     // Lưu hoặc cập nhật bản ghi Submission (Upsert)
+    // Lưu ý an toàn: Nếu bản ghi cũ đã có dữ liệu, update không làm mất dữ liệu cũ
     const submission = await db.submission.upsert({
       where: {
         competitionId_teacherId: {
@@ -134,7 +142,7 @@ export async function POST(req: Request) {
         status: submissionStatus,
         driveFileId: driveFileId || undefined,
         driveFileUrl: driveFileUrl || undefined,
-        localImageUrl: localImageUrl || undefined,
+        localImageUrl: driveFileUrl ? null : (localImageUrl || undefined),
         imageFileName: fileName || undefined,
         note: note ? note.trim() : null,
         submittedAt: now,

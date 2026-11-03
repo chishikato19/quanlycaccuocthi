@@ -47,7 +47,8 @@ model Competition {
   submissions         Submission[]
 
   @@index([createdAt])
-  @@index([status])
+  @@index([status, deadline])
+  @@index([creatorId])
 }
 
 model CompetitionAssignee {

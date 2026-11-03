@@ -98,8 +98,9 @@ export const UploadProofModal: React.FC<UploadProofModalProps> = ({
         }
       } else {
         // Tệp tài liệu (Word, PDF, Excel, PowerPoint, ZIP...) -> Đọc trực tiếp không nén
-        if (file.size > 25 * 1024 * 1024) {
-          setError("Dung lượng tệp vượt quá 25MB. Vui lòng chọn tệp nhỏ hơn.");
+        // Giới hạn an toàn 3.5MB để không vượt trần 4.5MB Payload của Vercel Serverless
+        if (file.size > 3.5 * 1024 * 1024) {
+          setError("Dung lượng tệp vượt quá 3.5MB (giới hạn tải lên an toàn của hệ thống). Vui lòng chọn tệp nhỏ hơn hoặc xuất ảnh chụp màn hình.");
           setIsProcessing(false);
           return;
         }

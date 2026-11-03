@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { extractDriveFolderId } from "@/lib/google-drive";
 import { isDatabaseConfigured, mockTeachers } from "@/lib/mock-data";
@@ -56,6 +57,7 @@ export async function POST(req: Request) {
     }
 
     const defaultPin = process.env.DEFAULT_USER_PIN || "1234";
+    const hashedPin = await bcrypt.hash(defaultPin, 10);
 
     const newTeacher = await db.teacher.create({
       data: {
@@ -63,7 +65,7 @@ export async function POST(req: Request) {
         department: department.trim(),
         phone: phone ? phone.trim() : null,
         role: role === "ADMIN" ? "ADMIN" : "USER",
-        pinCode: defaultPin,
+        pinCode: hashedPin,
         driveFolderId: typeof driveFolderId === "string" && driveFolderId.trim().startsWith("{")
           ? driveFolderId.trim()
           : extractDriveFolderId(driveFolderId),
@@ -156,6 +158,14 @@ export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const requesterId = req.headers.get("x-user-id");
+
+    if (requesterId) {
+      const requester = await db.teacher.findUnique({ where: { id: requesterId } });
+      if (!requester || (requester.role !== "ADMIN" && requester.role !== "SUPER_ADMIN")) {
+        return NextResponse.json({ error: "Bạn không có quyền xóa giáo viên" }, { status: 403 });
+      }
+    }
 
     if (!id) {
       return NextResponse.json({ error: "Thiếu ID giáo viên" }, { status: 400 });

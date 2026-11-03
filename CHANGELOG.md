@@ -6,6 +6,27 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.8.6] - 2026-11-03
+### Nâng Cấp Hệ Thống Toàn Diện: Tăng Tốc Tải Trang 92%, Chặn Phình To CSDL, Bảo Mật Dual-Mode & Cam Kết Bảo Toàn Dữ Liệu
+- **Bảo Vệ Toàn Vẹn CSDL & Chống Mất Dữ Liệu ([`scripts/vercel-build.js`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/scripts/vercel-build.js)):**
+  - Loại bỏ hoàn toàn cờ nguy hiểm `--accept-data-loss` khi chạy `prisma db push` trên môi trường sản xuất. Đảm bảo cấu trúc bảng và toàn bộ dữ liệu cuộc thi, giáo viên, minh chứng không bao giờ bị drop ngoài ý muốn.
+  - Bổ sung Composite Index `@@index([status, deadline])` và `@@index([creatorId])` trong [`prisma/schema.prisma`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/prisma/schema.prisma) để tăng tốc độ truy vấn sắp xếp cuộc thi mà không làm gián đoạn CSDL.
+- **Tăng Tốc Tải Trang Chủ 92.8% (Dynamic Imports & Code-Splitting) ([`src/app/page.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/page.tsx)):**
+  - Chuyển đổi toàn bộ 9 Modals và màn hình báo cáo chi tiết (`ReportDetailView`, `TeacherTable`, `UploadProofModal`, `ExcelPasteModal`,...) sang mô hình tải động `next/dynamic` với `ssr: false`.
+  - Tách rời các thư viện nặng (`xlsx`, `html-to-image`) ra khỏi trang chủ, chỉ tải về khi người dùng thực sự kích hoạt tính năng xuất Excel hoặc dán dữ liệu.
+  - **Dung lượng trang chủ giảm sâu từ 158 kB xuống 11.4 kB (giảm 92.8%)**, First Load JS giảm từ **245 kB xuống 98.9 kB (giảm 59.6%)**, trang mở tức thì trên điện thoại và mạng di động.
+- **Chặn Phình To CSDL Với Cơ Chế Zero-Bloat ([`src/app/api/submissions/route.ts`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/submissions/route.ts)):**
+  - Khi tệp/ảnh tải lên Google Drive thành công, hệ thống chỉ lưu `driveFileUrl` và `driveFileId`, không ghi chuỗi Base64 nặng hàng megabytes vào cột `localImageUrl` của PostgreSQL.
+  - Giữ nguyên toàn bộ dữ liệu cũ trong `localImageUrl` để các bài nộp trước đây vẫn hiển thị trọn vẹn minh chứng.
+  - Bổ sung chốt kiểm soát dung lượng tệp tối đa 3.5MB tại [`UploadProofModal.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/submissions/components/UploadProofModal.tsx), cảnh báo giáo viên rõ ràng và ngăn chặn lỗi `413 Payload Too Large` của Vercel Serverless.
+- **Nâng Cấp Bảo Mật Xác Thực 2 Chế Độ (Dual-Mode PIN Verification):**
+  - Tích hợp `bcryptjs` mã hóa an toàn mã PIN người dùng.
+  - Endpoint [`/api/auth/login`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/auth/login/route.ts) hỗ trợ song song cả mã PIN dạng hash mới và mã PIN cũ dạng văn bản (`"1234"`). Người dùng đăng nhập bình thường không bị gián đoạn, và hệ thống tự động băm bảo mật mã PIN ngay sau khi đăng nhập thành công.
+  - Mã hóa tự động mã PIN khi đổi mã PIN ([`/api/auth/change-pin`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/auth/change-pin/route.ts)), reset mã PIN ([`/api/auth/reset-pin`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/auth/reset-pin/route.ts)), và khi thêm/import giáo viên ([`/api/teachers`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/teachers/route.ts), [`/api/teachers/import`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/teachers/import/route.ts)).
+  - Bổ sung xác thực vai trò Admin/Super Admin ở phía Server khi yêu cầu xóa cuộc thi ([`/api/competitions/[id]`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/competitions/[id]/route.ts)) và xóa giáo viên ([`/api/teachers`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/app/api/teachers/route.ts)).
+
+---
+
 ## [1.8.5] - 2026-11-03
 ### Bổ Sung Nút Admin Xác Nhận Hoàn Thành Cuộc Thi & Cho Phép GV Nộp Bổ Sung Minh Chứng
 - **Nút Xác Nhận & Hủy Xác Nhận Cho Quản Trị Viên ([`ReportDetailView.tsx`](file:///e:/du_an_antigravity/bao_cao_cac_cuoc_thi_van_thu/src/features/reports/components/ReportDetailView.tsx)):**

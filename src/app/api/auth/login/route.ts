@@ -1,6 +1,41 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { isDatabaseConfigured, mockSuperAdmin, mockTeachers } from "@/lib/mock-data";
+
+/**
+ * Hàm kiểm tra mã PIN hỗ trợ 2 chế độ (Dual-Mode Verification)
+ * - Nếu mã PIN đã hash (bcrypt): So sánh bằng bcrypt.compare
+ * - Nếu mã PIN là dạng text cũ ("1234"): So sánh trực tiếp, nếu đúng sẽ TỰ ĐỘNG nâng cấp lên hash bcrypt
+ * Đảm bảo 100% không làm gián đoạn người dùng và bảo mật dữ liệu lũy tiến.
+ */
+async function verifyAndUpgradePin(
+  teacher: { id: string; pinCode: string },
+  inputPin: string
+): Promise<boolean> {
+  const cleanInput = inputPin.trim();
+  const dbPin = teacher.pinCode || "";
+  const isHashed = dbPin.startsWith("$2a$") || dbPin.startsWith("$2b$") || dbPin.startsWith("$2y$");
+
+  if (isHashed) {
+    return await bcrypt.compare(cleanInput, dbPin);
+  } else {
+    // Plain text cũ
+    if (dbPin === cleanInput) {
+      try {
+        const hashed = await bcrypt.hash(cleanInput, 10);
+        await db.teacher.update({
+          where: { id: teacher.id },
+          data: { pinCode: hashed },
+        });
+      } catch (err) {
+        console.warn("Lỗi tự động nâng cấp hash PIN:", err);
+      }
+      return true;
+    }
+    return false;
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -102,7 +137,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Tài khoản Tổng Quản Trị không tồn tại" }, { status: 404 });
       }
 
-      if (superAdmin.pinCode !== pinCode.trim()) {
+      const isSuperAdminPinValid = await verifyAndUpgradePin(superAdmin, pinCode);
+      if (!isSuperAdminPinValid) {
         return NextResponse.json({ error: "Mật mã Tổng Quản Trị không chính xác" }, { status: 401 });
       }
 
@@ -123,7 +159,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Không tìm thấy thông tin giáo viên" }, { status: 404 });
     }
 
-    if (teacher.pinCode !== pinCode.trim()) {
+    const isTeacherPinValid = await verifyAndUpgradePin(teacher, pinCode);
+    if (!isTeacherPinValid) {
       return NextResponse.json({ error: "Mã PIN không chính xác" }, { status: 401 });
     }
 

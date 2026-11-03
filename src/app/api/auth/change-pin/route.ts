@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { isDatabaseConfigured } from "@/lib/mock-data";
 
@@ -26,13 +27,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Không tìm thấy giáo viên" }, { status: 404 });
     }
 
-    if (teacher.pinCode !== oldPin.trim()) {
+    const dbPin = teacher.pinCode || "";
+    const isHashed = dbPin.startsWith("$2a$") || dbPin.startsWith("$2b$") || dbPin.startsWith("$2y$");
+    const isOldPinValid = isHashed ? await bcrypt.compare(oldPin.trim(), dbPin) : (dbPin === oldPin.trim());
+
+    if (!isOldPinValid) {
       return NextResponse.json({ error: "Mã PIN hiện tại không đúng" }, { status: 400 });
     }
 
+    const hashedNewPin = await bcrypt.hash(newPin.trim(), 10);
     await db.teacher.update({
       where: { id: teacherId },
-      data: { pinCode: newPin.trim() },
+      data: { pinCode: hashedNewPin },
     });
 
     return NextResponse.json({ success: true, message: "Đổi mã PIN thành công!" });

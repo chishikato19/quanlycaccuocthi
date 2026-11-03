@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { ParsedTeacherRow } from "@/lib/excel-parser";
 
@@ -11,6 +12,7 @@ export async function POST(req: Request) {
     }
 
     const defaultPin = process.env.DEFAULT_USER_PIN || "1234";
+    const hashedPin = await bcrypt.hash(defaultPin, 10);
     let importedCount = 0;
     let skippedCount = 0;
 
@@ -47,7 +49,7 @@ export async function POST(req: Request) {
             department: row.department.trim() || "Chung",
             phone: row.phone ? row.phone.trim() : null,
             role: row.role || "USER",
-            pinCode: defaultPin,
+            pinCode: hashedPin,
             isActive: true,
           },
         });

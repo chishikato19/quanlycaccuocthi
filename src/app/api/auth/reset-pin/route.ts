@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { isDatabaseConfigured } from "@/lib/mock-data";
 
@@ -27,10 +28,11 @@ export async function POST(req: Request) {
     }
 
     const defaultPin = process.env.DEFAULT_USER_PIN || "1234";
+    const hashedDefaultPin = await bcrypt.hash(defaultPin, 10);
 
     await db.teacher.update({
       where: { id: targetTeacherId },
-      data: { pinCode: defaultPin },
+      data: { pinCode: hashedDefaultPin },
     });
 
     return NextResponse.json({
