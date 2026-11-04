@@ -7,6 +7,17 @@ export interface MockTeacher {
   pinCode: string;
   isActive: boolean;
   driveFolderId?: string | null;
+  groups?: Array<{ id: string; name: string; color: string | null }>;
+  groupIds?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface MockGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -57,6 +68,52 @@ export interface MockCompetition {
   isAssigned?: boolean;
   userSubmission?: unknown;
 }
+
+export const mockGroups: MockGroup[] = [
+  { id: "grp-01", name: "Đảng viên", description: "Các cán bộ, giáo viên thuộc Chi bộ nhà trường", color: "red", createdAt: new Date(), updatedAt: new Date() },
+  { id: "grp-02", name: "Đoàn viên", description: "Chi đoàn thanh niên giáo viên", color: "blue", createdAt: new Date(), updatedAt: new Date() },
+  { id: "grp-03", name: "Nữ công", description: "Cán bộ, giáo viên, nhân viên nữ", color: "rose", createdAt: new Date(), updatedAt: new Date() },
+  { id: "grp-04", name: "Cán bộ quản lý", description: "Ban Giám hiệu và Tổ trưởng chuyên môn", color: "purple", createdAt: new Date(), updatedAt: new Date() },
+  { id: "grp-05", name: "Công đoàn viên", description: "Toàn thể đoàn viên công đoàn cơ sở", color: "amber", createdAt: new Date(), updatedAt: new Date() },
+];
+
+export const mockTeacherGroups: Array<{ teacherId: string; groupId: string }> = [
+  // Đảng viên: Thầy An, Cô Bích, Thầy Cường, Cô Dung, Thầy Tài
+  { teacherId: "tc-01", groupId: "grp-01" },
+  { teacherId: "tc-02", groupId: "grp-01" },
+  { teacherId: "tc-03", groupId: "grp-01" },
+  { teacherId: "tc-09", groupId: "grp-01" },
+  { teacherId: "tc-28", groupId: "grp-01" },
+
+  // Đoàn viên: Vũ Đức Em, Đỗ Thị Giang, Đào Thu Quỳnh, Lương Văn Xuân...
+  { teacherId: "tc-04", groupId: "grp-02" },
+  { teacherId: "tc-05", groupId: "grp-02" },
+  { teacherId: "tc-16", groupId: "grp-02" },
+  { teacherId: "tc-21", groupId: "grp-02" },
+
+  // Nữ công: Cô Bích, Cô Giang, Cô Hương, Cô Dung, Cô Lan...
+  { teacherId: "tc-02", groupId: "grp-03" },
+  { teacherId: "tc-05", groupId: "grp-03" },
+  { teacherId: "tc-07", groupId: "grp-03" },
+  { teacherId: "tc-09", groupId: "grp-03" },
+  { teacherId: "tc-10", groupId: "grp-03" },
+  { teacherId: "tc-12", groupId: "grp-03" },
+  { teacherId: "tc-13", groupId: "grp-03" },
+  { teacherId: "tc-16", groupId: "grp-03" },
+  { teacherId: "tc-18", groupId: "grp-03" },
+  { teacherId: "tc-20", groupId: "grp-03" },
+  { teacherId: "tc-22", groupId: "grp-03" },
+  { teacherId: "tc-24", groupId: "grp-03" },
+  { teacherId: "tc-26", groupId: "grp-03" },
+  { teacherId: "tc-29", groupId: "grp-03" },
+
+  // Cán bộ quản lý: BGH và các tổ trưởng
+  { teacherId: "tc-01", groupId: "grp-04" },
+  { teacherId: "tc-02", groupId: "grp-04" },
+  { teacherId: "tc-03", groupId: "grp-04" },
+  { teacherId: "tc-09", groupId: "grp-04" },
+  { teacherId: "tc-15", groupId: "grp-04" },
+];
 
 export const mockSuperAdmin: MockTeacher = {
   id: "teacher-superadmin-001",
@@ -217,4 +274,20 @@ export function getDatabaseUrl(): string | undefined {
 export function isDatabaseConfigured(): boolean {
   const url = getDatabaseUrl();
   return Boolean(url && (url.startsWith("postgresql://") || url.startsWith("postgres://")));
+}
+
+export function getEnrichedMockTeachers(): MockTeacher[] {
+  return mockTeachers.map((t) => {
+    const tGroupIds = mockTeacherGroups
+      .filter((tg) => tg.teacherId === t.id)
+      .map((tg) => tg.groupId);
+    const groups = mockGroups
+      .filter((g) => tGroupIds.includes(g.id))
+      .map((g) => ({ id: g.id, name: g.name, color: g.color }));
+    return {
+      ...t,
+      groups,
+      groupIds: tGroupIds,
+    };
+  });
 }

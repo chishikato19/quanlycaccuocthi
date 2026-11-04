@@ -637,7 +637,10 @@ export default function HomePage() {
             {activeTab === "TEACHERS" && isAdmin && (
               <TeacherTable
                 teachers={teachers}
-                onRefresh={() => loadData()}
+                onRefresh={() => {
+                  loadTeachers();
+                  loadData();
+                }}
                 onOpenAdd={() => {
                   setSelectedTeacherForEdit(null);
                   setIsTeacherFormOpen(true);
@@ -744,7 +747,10 @@ export default function HomePage() {
           setIsTeacherFormOpen(false);
           setSelectedTeacherForEdit(null);
         }}
-        onSuccess={() => loadData()}
+        onSuccess={() => {
+          loadTeachers();
+          loadData();
+        }}
       />
 
       <ExcelPasteModal

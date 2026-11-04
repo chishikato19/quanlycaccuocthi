@@ -2,19 +2,30 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { parseDriveConfig } from "@/lib/google-drive";
-import { isDatabaseConfigured, mockTeachers } from "@/lib/mock-data";
+import {
+  isDatabaseConfigured,
+  mockTeachers,
+  mockTeacherGroups,
+  mockGroups,
+  getEnrichedMockTeachers,
+  MockTeacher,
+} from "@/lib/mock-data";
 import { requireAuth, getServerSession } from "@/lib/auth";
 
 // Lấy danh sách giáo viên trường
 export async function GET(req: Request) {
   try {
-    if (!isDatabaseConfigured()) {
-      return NextResponse.json({ success: true, data: mockTeachers, isDemoMode: true });
-    }
-
     const { searchParams } = new URL(req.url);
     const includeSuperAdmin = searchParams.get("includeSuperAdmin") === "true";
     const session = getServerSession();
+
+    if (!isDatabaseConfigured()) {
+      let data = getEnrichedMockTeachers();
+      if (!includeSuperAdmin) {
+        data = data.filter((t) => t.role !== "SUPER_ADMIN");
+      }
+      return NextResponse.json({ success: true, data, isDemoMode: true });
+    }
 
     const whereClause: Record<string, unknown> = { isActive: true };
     if (!includeSuperAdmin) {
@@ -37,6 +48,17 @@ export async function GET(req: Request) {
         isActive: true,
         createdAt: true,
         updatedAt: true,
+        groups: {
+          select: {
+            group: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -44,8 +66,12 @@ export async function GET(req: Request) {
     const sanitizedTeachers = teachers.map((t) => {
       const isOwner = session && (session.id === t.id || session.role === "SUPER_ADMIN");
       const parsed = parseDriveConfig(t.driveFolderId);
+      const groups = t.groups ? t.groups.map((tg) => tg.group) : [];
+      const groupIds = groups.map((g) => g.id);
       return {
         ...t,
+        groups,
+        groupIds,
         // Chỉ trả về folderId sạch cho người dùng thông thường; không bao giờ leak chuỗi Webhook riêng
         driveFolderId: isOwner ? t.driveFolderId : parsed.folderId,
       };
@@ -69,7 +95,7 @@ export async function POST(req: Request) {
     if (auth.errorResponse) return auth.errorResponse;
 
     const body = await req.json();
-    const { name, department, phone, role } = body;
+    const { name, department, phone, role, groupIds } = body;
 
     if (!name || !department) {
       return NextResponse.json({ error: "Vui lòng nhập họ tên và tổ chuyên môn" }, { status: 400 });
@@ -79,6 +105,41 @@ export async function POST(req: Request) {
     let assignedRole: "USER" | "ADMIN" = "USER";
     if (role === "ADMIN" && auth.user!.role === "SUPER_ADMIN") {
       assignedRole = "ADMIN";
+    }
+
+    if (!isDatabaseConfigured()) {
+      const newId = `tc-${Date.now()}`;
+      const newMock: MockTeacher = {
+        id: newId,
+        name: name.trim(),
+        department: department.trim(),
+        phone: phone ? phone.trim() : null,
+        role: assignedRole,
+        pinCode: "1234",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      mockTeachers.push(newMock);
+
+      if (Array.isArray(groupIds) && groupIds.length > 0) {
+        for (const gid of groupIds) {
+          mockTeacherGroups.push({ teacherId: newId, groupId: gid });
+        }
+      }
+
+      const assignedGroups = mockGroups
+        .filter((g) => groupIds?.includes(g.id))
+        .map((g) => ({ id: g.id, name: g.name, color: g.color }));
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          ...newMock,
+          groups: assignedGroups,
+          groupIds: groupIds || [],
+        },
+      });
     }
 
     const defaultPin = process.env.DEFAULT_USER_PIN || "1234";
@@ -105,14 +166,30 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ success: true, data: newTeacher });
+    if (Array.isArray(groupIds) && groupIds.length > 0) {
+      await db.teacherGroup.createMany({
+        data: groupIds.map((groupId: string) => ({
+          teacherId: newTeacher.id,
+          groupId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...newTeacher,
+        groupIds: groupIds || [],
+      },
+    });
   } catch (error) {
     console.error("Create teacher error:", error);
     return NextResponse.json({ error: "Lỗi khi tạo giáo viên" }, { status: 500 });
   }
 }
 
-// Cập nhật thông tin giáo viên & Cấu hình Google Drive riêng của Admin
+// Cập nhật thông tin giáo viên & Cấu hình Google Drive riêng của Admin & Gán vai trò
 export async function PUT(req: Request) {
   try {
     // 1. Xác thực Server Session: Bắt buộc là ADMIN hoặc SUPER_ADMIN
@@ -120,10 +197,49 @@ export async function PUT(req: Request) {
     if (auth.errorResponse) return auth.errorResponse;
 
     const body = await req.json();
-    const { id, name, department, phone, role, driveFolderId } = body;
+    const { id, name, department, phone, role, driveFolderId, groupIds } = body;
 
     if (!id || !name || !department) {
       return NextResponse.json({ error: "Thông tin cập nhật không hợp lệ" }, { status: 400 });
+    }
+
+    if (!isDatabaseConfigured()) {
+      const idx = mockTeachers.findIndex((t) => t.id === id);
+      if (idx === -1) {
+        return NextResponse.json({ error: "Không tìm thấy giáo viên" }, { status: 404 });
+      }
+
+      mockTeachers[idx].name = name.trim();
+      mockTeachers[idx].department = department.trim();
+      mockTeachers[idx].phone = phone ? phone.trim() : null;
+      if (auth.user!.role === "SUPER_ADMIN" && role && mockTeachers[idx].role !== "SUPER_ADMIN") {
+        mockTeachers[idx].role = role;
+      }
+      mockTeachers[idx].updatedAt = new Date();
+
+      if (Array.isArray(groupIds)) {
+        for (let i = mockTeacherGroups.length - 1; i >= 0; i--) {
+          if (mockTeacherGroups[i].teacherId === id) {
+            mockTeacherGroups.splice(i, 1);
+          }
+        }
+        for (const gid of groupIds) {
+          mockTeacherGroups.push({ teacherId: id, groupId: gid });
+        }
+      }
+
+      const assignedGroups = mockGroups
+        .filter((g) => groupIds?.includes(g.id))
+        .map((g) => ({ id: g.id, name: g.name, color: g.color }));
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          ...mockTeachers[idx],
+          groups: assignedGroups,
+          groupIds: groupIds || [],
+        },
+      });
     }
 
     const targetTeacher = await db.teacher.findUnique({ where: { id } });
@@ -170,7 +286,26 @@ export async function PUT(req: Request) {
       },
     });
 
-    return NextResponse.json({ success: true, data: updated });
+    if (Array.isArray(groupIds)) {
+      await db.teacherGroup.deleteMany({ where: { teacherId: id } });
+      if (groupIds.length > 0) {
+        await db.teacherGroup.createMany({
+          data: groupIds.map((groupId: string) => ({
+            teacherId: id,
+            groupId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...updated,
+        groupIds: groupIds || [],
+      },
+    });
   } catch (error) {
     console.error("Update teacher error:", error);
     return NextResponse.json({ error: "Lỗi khi cập nhật giáo viên" }, { status: 500 });
@@ -189,6 +324,18 @@ export async function DELETE(req: Request) {
 
     if (!id) {
       return NextResponse.json({ error: "Thiếu ID giáo viên" }, { status: 400 });
+    }
+
+    if (!isDatabaseConfigured()) {
+      const idx = mockTeachers.findIndex((t) => t.id === id);
+      if (idx === -1) {
+        return NextResponse.json({ error: "Không tìm thấy giáo viên" }, { status: 404 });
+      }
+      if (mockTeachers[idx].role === "SUPER_ADMIN" || mockTeachers[idx].phone === "admin") {
+        return NextResponse.json({ error: "Không thể xóa tài khoản Tổng Quản Trị" }, { status: 403 });
+      }
+      mockTeachers.splice(idx, 1);
+      return NextResponse.json({ success: true, message: "Đã xóa giáo viên" });
     }
 
     const target = await db.teacher.findUnique({ where: { id } });

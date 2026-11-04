@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { TeacherDto } from "@/types";
 import { normalizeVietnamese } from "@/lib/utils";
 import {
@@ -20,10 +20,13 @@ import {
   Building2,
   CheckSquare,
   Square,
-  ArrowRight
+  ArrowRight,
+  Tags,
 } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { DepartmentManagementModal } from "./DepartmentManagementModal";
+import { GroupManagementModal, GROUP_COLOR_MAP } from "./GroupManagementModal";
+import { GroupDto } from "@/types";
 
 interface TeacherTableProps {
   teachers: TeacherDto[];
@@ -54,6 +57,24 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
   // Quản lý tổ chuyên môn
   const [isDeptModalOpen, setIsDeptModalOpen] = useState(false);
 
+  // Quản lý nhóm / vai trò
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [groupFilter, setGroupFilter] = useState("ALL");
+  const [groups, setGroups] = useState<GroupDto[]>([]);
+
+  const loadGroups = () => {
+    fetch("/api/groups")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) setGroups(data.data || []);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
   // Chọn hàng loạt để chuyển tổ
   const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
   const [batchTargetDept, setBatchTargetDept] = useState("");
@@ -83,6 +104,15 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
     if (departmentFilter !== "ALL" && t.department !== departmentFilter) {
       return false;
     }
+
+    // Lọc theo nhóm / vai trò
+    if (groupFilter !== "ALL") {
+      const inGroup =
+        t.groups?.some((g) => g.id === groupFilter) ||
+        t.groupIds?.includes(groupFilter);
+      if (!inGroup) return false;
+    }
+
     // Lọc theo tìm kiếm
     if (searchQuery.trim()) {
       const q = normalizeVietnamese(searchQuery);
@@ -235,10 +265,44 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
               })}
             </select>
           </div>
+
+          {/* Lọc theo nhóm / vai trò */}
+          <div className="w-full sm:w-auto">
+            <select
+              value={groupFilter}
+              onChange={(e) => setGroupFilter(e.target.value)}
+              className="w-full sm:w-auto px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-sky-500 bg-slate-50 text-slate-700 font-medium"
+            >
+              <option value="ALL">Tất cả nhóm / vai trò</option>
+              {groups.map((g) => {
+                const count = teachers.filter(
+                  (t) =>
+                    t.role !== "SUPER_ADMIN" &&
+                    (t.groups?.some((grp) => grp.id === g.id) || t.groupIds?.includes(g.id))
+                ).length;
+                return (
+                  <option key={g.id} value={g.id}>
+                    {g.name} ({count})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
         </div>
 
         {/* Cụm nút thao tác */}
         <div className="flex items-center gap-2 pt-1 sm:pt-0 flex-wrap">
+          {/* Nút Quản Lý Nhóm & Vai Trò */}
+          <button
+            type="button"
+            onClick={() => setIsGroupModalOpen(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-all min-h-[38px]"
+            title="Quản lý danh sách nhóm/vai trò (Đảng viên, Đoàn viên, Nữ công...)"
+          >
+            <Tags className="w-4 h-4" />
+            <span>Quản Lý Nhóm</span>
+          </button>
+
           {/* Nút Quản Lý Tổ Chuyên Môn */}
           <button
             type="button"
@@ -334,6 +398,7 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
                 <th className="py-3 px-3.5 w-12 text-center font-bold">STT</th>
                 <th className="py-3 px-3.5 font-bold">Họ và Tên</th>
                 <th className="py-3 px-3.5 font-bold">Tổ Chuyên Môn</th>
+                <th className="py-3 px-3.5 font-bold">Nhóm / Vai Trò</th>
                 <th className="py-3 px-3.5 font-bold">Số Điện Thoại</th>
                 <th className="py-3 px-3.5 font-bold text-center">Vai Trò / Phân Quyền</th>
                 <th className="py-3 px-3.5 text-center font-bold">Mã PIN</th>
@@ -343,7 +408,7 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
             <tbody className="divide-y divide-slate-100">
               {filteredTeachers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                  <td colSpan={9} className="py-8 text-center text-slate-400">
                     Không tìm thấy giáo viên nào phù hợp
                   </td>
                 </tr>
@@ -383,6 +448,29 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
                         <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-100 text-[11px] font-semibold">
                           {t.department}
                         </span>
+                      </td>
+                      <td className="py-2.5 px-3.5">
+                        <div className="flex flex-wrap gap-1 max-w-[220px]">
+                          {t.groups && t.groups.length > 0 ? (
+                            t.groups.map((g) => {
+                              const colorConfig =
+                                GROUP_COLOR_MAP[g.color || "blue"] || GROUP_COLOR_MAP.blue;
+                              return (
+                                <span
+                                  key={g.id}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border ${colorConfig.bg} ${colorConfig.text} ${colorConfig.border}`}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${colorConfig.dot}`}
+                                  />
+                                  <span>{g.name}</span>
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <span className="text-[11px] text-slate-300 italic">---</span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-2.5 px-3.5 text-slate-500 font-mono">
                         {t.phone || "---"}
@@ -465,6 +553,20 @@ export const TeacherTable: React.FC<TeacherTableProps> = ({
         onClose={() => setIsDeptModalOpen(false)}
         teachers={teachers}
         onRefresh={() => {
+          if (onRefresh) onRefresh();
+        }}
+      />
+
+      {/* Modal Quản Lý Nhóm & Vai Trò Nghiệp Vụ */}
+      <GroupManagementModal
+        isOpen={isGroupModalOpen}
+        onClose={() => {
+          setIsGroupModalOpen(false);
+          loadGroups();
+        }}
+        teachers={teachers}
+        onRefresh={() => {
+          loadGroups();
           if (onRefresh) onRefresh();
         }}
       />

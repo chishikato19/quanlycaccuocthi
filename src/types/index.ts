@@ -1,5 +1,15 @@
 export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'USER';
 
+export interface GroupDto {
+  id: string;
+  name: string;
+  description?: string | null;
+  color?: string | null;
+  teacherCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface TeacherDto {
   id: string;
   name: string;
@@ -9,6 +19,8 @@ export interface TeacherDto {
   pinCode?: string;
   isActive: boolean;
   driveFolderId?: string | null;
+  groups?: GroupDto[];
+  groupIds?: string[];
   createdAt: string;
   updatedAt: string;
 }

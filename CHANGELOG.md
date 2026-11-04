@@ -6,6 +6,24 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.9.0] - 2026-11-04
+### Tính Năng Mới: Quản Lý Nhóm & Vai Trò Giáo Viên (Bảo Toàn Dữ Liệu Cuộc Thi)
+- **Hệ Thống Phân Loại Nhóm & Vai Trò Nghiệp Vụ (`Group` & `TeacherGroup`):**
+  - Hỗ trợ mô hình một nhân sự kiêm nhiệm nhiều vai trò (Đảng viên, Đoàn viên, Nữ công, Cán bộ quản lý, Công đoàn viên...).
+  - Thiết kế bảng danh mục `Group` và liên kết quan hệ nhiều-nhiều non-destructive, không ảnh hưởng đến bất kỳ cuộc thi hay dữ liệu nộp bài nào trước đó.
+- **Backend API Nhóm & Đồng Bộ Nhân Sự (`/api/groups` & `/api/teachers`):**
+  - Cung cấp API CRUD quản lý nhóm đầy đủ: `GET /api/groups`, `POST /api/groups` (hỗ trợ nút tạo nhanh nhóm mẫu), `PUT` và `DELETE /api/groups/[id]`.
+  - Cập nhật `/api/teachers` để tự động trả về thông tin nhóm của từng giáo viên và đồng bộ danh sách nhóm khi cập nhật.
+- **Giao Diện Quản Lý Nhóm Dành Cho Admin (`GroupManagementModal`):**
+  - Giao diện 2 cột hiện đại: Cột trái quản lý danh mục và màu sắc huy hiệu; cột phải quản lý thành viên với ô tìm kiếm và checkbox thêm/gỡ thành viên tức thì.
+  - Tích hợp bộ chọn nhóm nhiều vai trò trong form thêm/sửa giáo viên (`TeacherFormModal`).
+  - Hiển thị các Badge màu sắc theo từng nhóm trên bảng danh sách nhân sự (`TeacherTable`), bổ sung bộ lọc nhanh theo nhóm/vai trò.
+- **Bộ Chọn Nhanh Thí Sinh Theo Nhóm Khi Tạo Cuộc Thi (`DepartmentSelector`):**
+  - Bổ sung cụm nút chọn nhanh theo nhóm đối tượng dự thi (Đảng viên, Đoàn viên, Nữ công...).
+  - Admin bấm 1 click để tự động chọn toàn bộ thành viên của nhóm mục tiêu mà không phải chọn thủ công từng người.
+
+---
+
 ## [1.8.9] - 2026-11-03
 ### Nâng Cấp Bảo Mật & Xác Thực Phía Server (Zero Data Loss & Safe Build)
 - **Thiết Lập Xác Thực Server-side Bắt Buộc (HttpOnly Signed Session Cookie):**
