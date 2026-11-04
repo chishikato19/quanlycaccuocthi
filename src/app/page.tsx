@@ -262,6 +262,13 @@ export default function HomePage() {
     }
   }, [isAdmin, teachers.length, isLoadingData, loadTeachers]);
 
+  // Luôn làm mới danh sách giáo viên khi Admin bấm vào Tab Quản lý giáo viên
+  useEffect(() => {
+    if (activeTab === "TEACHERS" && isAdmin) {
+      loadTeachers();
+    }
+  }, [activeTab, isAdmin, loadTeachers]);
+
   // Tự động mở LoginModal nếu chưa đăng nhập và đã load xong
   useEffect(() => {
     if (!isAuthLoading && !currentUser) {

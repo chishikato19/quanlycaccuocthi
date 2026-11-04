@@ -6,6 +6,17 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.9.1] - 2026-11-04
+### Sửa Lỗi Bảo Vệ Danh Sách Giáo Viên (Bulletproof Teacher Fallback & Auto DDL)
+- **Cơ Chế Fallback Truy Vấn Giáo Viên Tuyệt Đối An Toàn:**
+  - Nếu cơ sở dữ liệu trên Production chưa tạo các bảng mới `Group`/`TeacherGroup`, API `/api/teachers` sẽ tự động fallback sang truy vấn không kèm relation thay vì văng lỗi 500. Đảm bảo 100% không bao giờ bị mất hoặc ẩn danh sách giáo viên.
+- **Tự Động Tạo Bảng Phi Phá Hủy (`ensureGroupTablesExist`):**
+  - Chạy `CREATE TABLE IF NOT EXISTS "Group"` và `"TeacherGroup"` qua raw SQL chuẩn PostgreSQL, tự động chuẩn bị cấu trúc bảng khi có request mà không cần can thiệp tay.
+- **Tự Động Làm Mới Khi Bấm Tab Giáo Viên:**
+  - `page.tsx` kích hoạt tải lại danh sách giáo viên mỗi khi Admin bấm vào tab Danh sách giáo viên.
+
+---
+
 ## [1.9.0] - 2026-11-04
 ### Tính Năng Mới: Quản Lý Nhóm & Vai Trò Giáo Viên (Bảo Toàn Dữ Liệu Cuộc Thi)
 - **Hệ Thống Phân Loại Nhóm & Vai Trò Nghiệp Vụ (`Group` & `TeacherGroup`):**

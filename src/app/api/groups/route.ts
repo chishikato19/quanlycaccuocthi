@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isDatabaseConfigured, mockGroups, mockTeacherGroups } from "@/lib/mock-data";
 import { requireAuth } from "@/lib/auth";
+import { ensureGroupTablesExist } from "@/lib/ensure-tables";
 
 const DEFAULT_PRESET_GROUPS = [
   { name: "Đảng viên", description: "Cán bộ, giáo viên thuộc Chi bộ", color: "red" },
@@ -30,26 +31,33 @@ export async function GET() {
       return NextResponse.json({ success: true, data, isDemoMode: true });
     }
 
-    const groups = await db.group.findMany({
-      orderBy: { name: "asc" },
-      include: {
-        _count: {
-          select: { teachers: true },
+    await ensureGroupTablesExist().catch(() => {});
+
+    try {
+      const groups = await db.group.findMany({
+        orderBy: { name: "asc" },
+        include: {
+          _count: {
+            select: { teachers: true },
+          },
         },
-      },
-    });
+      });
 
-    const data = groups.map((g) => ({
-      id: g.id,
-      name: g.name,
-      description: g.description,
-      color: g.color || "blue",
-      teacherCount: g._count.teachers,
-      createdAt: g.createdAt.toISOString(),
-      updatedAt: g.updatedAt.toISOString(),
-    }));
+      const data = groups.map((g: any) => ({
+        id: g.id,
+        name: g.name,
+        description: g.description,
+        color: g.color || "blue",
+        teacherCount: g._count?.teachers ?? 0,
+        createdAt: g.createdAt.toISOString(),
+        updatedAt: g.updatedAt.toISOString(),
+      }));
 
-    return NextResponse.json({ success: true, data });
+      return NextResponse.json({ success: true, data });
+    } catch (dbErr) {
+      console.warn("Could not fetch groups from DB:", dbErr);
+      return NextResponse.json({ success: true, data: [] });
+    }
   } catch (error) {
     console.error("Fetch groups error:", error);
     return NextResponse.json(

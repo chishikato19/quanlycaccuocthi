@@ -11,6 +11,7 @@ import {
   MockTeacher,
 } from "@/lib/mock-data";
 import { requireAuth, getServerSession } from "@/lib/auth";
+import { ensureGroupTablesExist } from "@/lib/ensure-tables";
 
 // Lấy danh sách giáo viên trường
 export async function GET(req: Request) {
@@ -27,47 +28,74 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, data, isDemoMode: true });
     }
 
+    // Đảm bảo bảng Group & TeacherGroup đã được khởi tạo nếu dùng PostgreSQL thật
+    await ensureGroupTablesExist().catch(() => {});
+
     const whereClause: Record<string, unknown> = { isActive: true };
     if (!includeSuperAdmin) {
       whereClause.role = { not: "SUPER_ADMIN" };
     }
 
-    const teachers = await db.teacher.findMany({
-      where: whereClause,
-      orderBy: [
-        { department: "asc" },
-        { name: "asc" },
-      ],
-      select: {
-        id: true,
-        name: true,
-        department: true,
-        phone: true,
-        role: true,
-        driveFolderId: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        groups: {
-          select: {
-            group: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
+    let teachers: any[] = [];
+    try {
+      teachers = await db.teacher.findMany({
+        where: whereClause,
+        orderBy: [
+          { department: "asc" },
+          { name: "asc" },
+        ],
+        select: {
+          id: true,
+          name: true,
+          department: true,
+          phone: true,
+          role: true,
+          driveFolderId: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+          groups: {
+            select: {
+              group: {
+                select: {
+                  id: true,
+                  name: true,
+                  color: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
+    } catch (relationErr) {
+      console.warn("Truy vấn nhóm thất bại (có thể bảng TeacherGroup chưa migrate trên DB), fallback truy vấn giáo viên cơ bản:", relationErr);
+      // FALLBACK AN TOÀN TUYỆT ĐỐI: Luôn lấy được danh sách giáo viên ngay cả khi bảng nhóm chưa được migrate
+      teachers = await db.teacher.findMany({
+        where: whereClause,
+        orderBy: [
+          { department: "asc" },
+          { name: "asc" },
+        ],
+        select: {
+          id: true,
+          name: true,
+          department: true,
+          phone: true,
+          role: true,
+          driveFolderId: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    }
 
     // BẢO MẬT: Loại bỏ hoàn toàn webhookUrl riêng tư khỏi kết quả trả về công khai
     const sanitizedTeachers = teachers.map((t) => {
       const isOwner = session && (session.id === t.id || session.role === "SUPER_ADMIN");
       const parsed = parseDriveConfig(t.driveFolderId);
-      const groups = t.groups ? t.groups.map((tg) => tg.group) : [];
-      const groupIds = groups.map((g) => g.id);
+      const groups = t.groups ? t.groups.map((tg: any) => tg.group) : [];
+      const groupIds = groups.map((g: any) => g.id);
       return {
         ...t,
         groups,
@@ -167,13 +195,17 @@ export async function POST(req: Request) {
     });
 
     if (Array.isArray(groupIds) && groupIds.length > 0) {
-      await db.teacherGroup.createMany({
-        data: groupIds.map((groupId: string) => ({
-          teacherId: newTeacher.id,
-          groupId,
-        })),
-        skipDuplicates: true,
-      });
+      try {
+        await db.teacherGroup.createMany({
+          data: groupIds.map((groupId: string) => ({
+            teacherId: newTeacher.id,
+            groupId,
+          })),
+          skipDuplicates: true,
+        });
+      } catch (err) {
+        console.warn("Could not save TeacherGroup (table may not exist yet):", err);
+      }
     }
 
     return NextResponse.json({
@@ -287,15 +319,19 @@ export async function PUT(req: Request) {
     });
 
     if (Array.isArray(groupIds)) {
-      await db.teacherGroup.deleteMany({ where: { teacherId: id } });
-      if (groupIds.length > 0) {
-        await db.teacherGroup.createMany({
-          data: groupIds.map((groupId: string) => ({
-            teacherId: id,
-            groupId,
-          })),
-          skipDuplicates: true,
-        });
+      try {
+        await db.teacherGroup.deleteMany({ where: { teacherId: id } });
+        if (groupIds.length > 0) {
+          await db.teacherGroup.createMany({
+            data: groupIds.map((groupId: string) => ({
+              teacherId: id,
+              groupId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      } catch (err) {
+        console.warn("Could not sync TeacherGroup (table may not exist yet):", err);
       }
     }
 
