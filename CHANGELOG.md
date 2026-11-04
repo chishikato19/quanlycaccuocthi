@@ -6,6 +6,18 @@ và tuân thủ [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.9.2] - 2026-11-04
+### Cải Tiến Giao Diện Quản Lý Nhóm 2 Cấp (Drill-down Navigation)
+- **Cấp 1 - Danh Sách Nhóm:**
+  - Hiển thị danh sách thẻ các nhóm, huy hiệu số lượng thành viên trực quan (`X người`), màu sắc và mô tả.
+  - Nút **`+ Thêm Nhóm Mới`** rõ ràng ở góc trên, popup tạo/sửa nhóm với bộ chọn màu sắc huy hiệu.
+- **Cấp 2 - Chi Tiết Thành Viên Khi Bấm Vào Nhóm:**
+  - Bấm vào bất kỳ nhóm nào sẽ mở chi tiết thành viên của nhóm đó, kèm nút **`← Danh sách nhóm`** để quay lại.
+  - Bảng danh sách thành viên hiện có trong nhóm cùng nút **`Gỡ`** nhanh.
+  - Nút **`+ Thêm Thành Viên`** mở popup tìm kiếm và tick chọn hàng loạt giáo viên trong trường chưa thuộc nhóm để thêm vào chỉ với 1 cú click.
+
+---
+
 ## [1.9.1] - 2026-11-04
 ### Sửa Lỗi Bảo Vệ Danh Sách Giáo Viên (Bulletproof Teacher Fallback & Auto DDL)
 - **Cơ Chế Fallback Truy Vấn Giáo Viên Tuyệt Đối An Toàn:**
